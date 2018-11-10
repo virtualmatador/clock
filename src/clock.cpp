@@ -32,6 +32,7 @@ Clock::~Clock()
 
 void Clock::CreateWindow()
 {
+	SDL_ShowCursor(SDL_DISABLE);
 	m_pWnd = SDL_CreateWindow("Clock", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
 		0, 0, SDL_WINDOW_SHOWN | SDL_WINDOW_FULLSCREEN_DESKTOP);
 	if (!m_pWnd)
