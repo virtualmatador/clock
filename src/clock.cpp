@@ -4,10 +4,22 @@
 #include <sstream>
 #include <iomanip>
 
+const char* Clock::m_WeekDays[] =
+{
+	"SUN",
+	"MON",
+	"TUE",
+	"WED",
+	"THU",
+	"FRI",
+	"SAT",
+};
+
 Clock::Clock()
 	: m_pWnd{nullptr}
 	, m_pRen{nullptr}
-	, m_Color{255, 255, 255}
+	, m_ColorTime{255, 255, 255}
+	, m_ColorDate{200, 200, 200}
 	, m_iWidth{0}
 	, m_frameTime{std::chrono::nanoseconds(0)}
 {
@@ -16,14 +28,18 @@ Clock::Clock()
 	CreateWindow();
 	if (TTF_Init() < 0)
 		throw "TTF_Init";
-	m_Font = TTF_OpenFont("/usr/share/fonts/truetype/crosextra/Caladea-Bold.ttf", 420);
-	if (!m_Font)
+	m_FontTime = TTF_OpenFont("/usr/share/fonts/truetype/crosextra/Caladea-Bold.ttf", 420);
+	if (!m_FontTime)
+		throw "TTF_OpenFont";
+	m_FontDate = TTF_OpenFont("/usr/share/fonts/truetype/crosextra/Carlito-Bold.ttf", 240);
+	if (!m_FontDate)
 		throw "TTF_OpenFont";
 }
 
 Clock::~Clock()
 {
-	TTF_CloseFont(m_Font);
+	TTF_CloseFont(m_FontTime);
+	TTF_CloseFont(m_FontDate);
 	TTF_Quit();
 	SDL_DestroyRenderer(m_pRen);
 	SDL_DestroyWindow(m_pWnd);
@@ -83,40 +99,49 @@ void Clock::Tick()
 	std::time_t t = std::chrono::system_clock::to_time_t(m_frameTime);
 	std::tm* now = std::localtime(&t);
 
-	std::stringstream sTime;
-	sTime <<
-		std::setfill('0') << std::setw(2) << now->tm_hour << ":" <<
-		std::setfill('0') << std::setw(2) << now->tm_min << ":" <<
-		std::setfill('0') << std::setw(2) << now->tm_sec;
-
-	//now->tm_year + 1900;
-	//now->tm_mon + 1;
-	//now->tm_mday;
-
-	if (SDL_SetRenderDrawColor(m_pRen, 0, 0, 0, 0) == 0)
+	int iY = 0;
+	if (SDL_RenderClear(m_pRen) == 0)
 	{
-		if (SDL_RenderClear(m_pRen) == 0)
+		std::stringstream sTime;
+		sTime <<
+			std::setfill('0') << std::setw(2) << now->tm_hour << ":" <<
+			std::setfill('0') << std::setw(2) << now->tm_min << ":" <<
+			std::setfill('0') << std::setw(2) << now->tm_sec;
+		DrawText(sTime.str(), m_FontTime, m_ColorTime, &iY);
+		std::stringstream sDay;
+		sDay << Clock::m_WeekDays[now->tm_wday];
+		DrawText(sDay.str(), m_FontDate, m_ColorTime, &iY);
+		std::stringstream sDate;
+		sDate <<
+			now->tm_year + 1900 << "/" <<
+			std::setfill('0') << std::setw(2) << now->tm_mon + 1 << "/" <<
+			std::setfill('0') << std::setw(2) << now->tm_mday;
+		DrawText(sDate.str(), m_FontDate, m_ColorDate, &iY);
+	}
+	SDL_RenderPresent(m_pRen);
+}
+
+void Clock::DrawText(const std::string & sText, TTF_Font* const pFont, const SDL_Color & color, int * piY)
+{
+	SDL_Surface* surface = TTF_RenderText_Solid(pFont, sText.c_str(), color);
+	if (surface)
+	{
+		SDL_Texture* texture = SDL_CreateTextureFromSurface(m_pRen, surface);
+		if (texture)
 		{
-			SDL_Surface* surfaceMessage = TTF_RenderText_Solid(m_Font, sTime.str().c_str(), m_Color);
-			if (surfaceMessage)
+			int w, h;
+			if (SDL_QueryTexture(texture, nullptr, nullptr, &w, &h) == 0)
 			{
-				SDL_Texture* curTime = SDL_CreateTextureFromSurface(m_pRen, surfaceMessage);
-				if (curTime)
-				{
-					int w, h;
-					if (SDL_QueryTexture(curTime, nullptr, nullptr, &w, &h) == 0)
-					{
-						SDL_Rect dest{(m_iWidth - w) / 2, 0, w, h};
-						SDL_RenderCopy(m_pRen, curTime, nullptr, &dest);
-						SDL_DestroyTexture(curTime);
-						SDL_FreeSurface(surfaceMessage);
-						SDL_RenderPresent(m_pRen);
-					}
-				}
+				SDL_Rect dest{(m_iWidth - w) / 2, *piY, w, h};
+				SDL_RenderCopy(m_pRen, texture, nullptr, &dest);
+				SDL_DestroyTexture(texture);
+				SDL_FreeSurface(surface);
+				*piY += h;
 			}
 		}
 	}
 }
+
 
 int main(int argc, char* argv[])
 {
