@@ -8,8 +8,7 @@ class Clock
 private:
 	SDL_Window* m_pWnd;
 	SDL_Renderer *m_pRen;
-	SDL_Color m_ColorDate;
-	SDL_Color m_ColorTime;
+	unsigned char m_Color;
 	TTF_Font* m_FontTime;
 	TTF_Font* m_FontDate;
 	int m_iWidth;

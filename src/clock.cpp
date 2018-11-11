@@ -3,6 +3,7 @@
 #include <ctime>
 #include <sstream>
 #include <iomanip>
+#include <cmath>
 
 const char* Clock::m_WeekDays[] =
 {
@@ -18,8 +19,7 @@ const char* Clock::m_WeekDays[] =
 Clock::Clock()
 	: m_pWnd{nullptr}
 	, m_pRen{nullptr}
-	, m_ColorTime{255, 255, 255}
-	, m_ColorDate{200, 200, 200}
+	, m_Color{255}
 	, m_iWidth{0}
 	, m_frameTime{std::chrono::nanoseconds(0)}
 {
@@ -28,7 +28,7 @@ Clock::Clock()
 	CreateWindow();
 	if (TTF_Init() < 0)
 		throw "TTF_Init";
-	m_FontTime = TTF_OpenFont("/usr/share/fonts/truetype/crosextra/Caladea-Bold.ttf", 420);
+	m_FontTime = TTF_OpenFont("/usr/share/fonts/truetype/crosextra/Carlito-Bold.ttf", 500);
 	if (!m_FontTime)
 		throw "TTF_OpenFont";
 	m_FontDate = TTF_OpenFont("/usr/share/fonts/truetype/crosextra/Carlito-Bold.ttf", 240);
@@ -102,21 +102,24 @@ void Clock::Tick()
 	int iY = 0;
 	if (SDL_RenderClear(m_pRen) == 0)
 	{
+		unsigned char iColor = m_Color * (std::sin(2.0 * std::atan(1) * 4.0 *
+				((now->tm_hour - 6) * 60 + now->tm_min) / 24.0 / 60.0) * 0.8 / 2.0 + 0.8 / 2.0 + 0.2);
+		SDL_Color color{iColor, iColor, iColor};
 		std::stringstream sTime;
 		sTime <<
 			std::setfill('0') << std::setw(2) << now->tm_hour << ":" <<
 			std::setfill('0') << std::setw(2) << now->tm_min << ":" <<
 			std::setfill('0') << std::setw(2) << now->tm_sec;
-		DrawText(sTime.str(), m_FontTime, m_ColorTime, &iY);
+		DrawText(sTime.str(), m_FontTime, color, &iY);
 		std::stringstream sDay;
 		sDay << Clock::m_WeekDays[now->tm_wday];
-		DrawText(sDay.str(), m_FontDate, m_ColorTime, &iY);
+		DrawText(sDay.str(), m_FontDate, color, &iY);
 		std::stringstream sDate;
 		sDate <<
 			now->tm_year + 1900 << "/" <<
 			std::setfill('0') << std::setw(2) << now->tm_mon + 1 << "/" <<
 			std::setfill('0') << std::setw(2) << now->tm_mday;
-		DrawText(sDate.str(), m_FontDate, m_ColorDate, &iY);
+		DrawText(sDate.str(), m_FontDate, color, &iY);
 	}
 	SDL_RenderPresent(m_pRen);
 }
