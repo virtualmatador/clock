@@ -16,7 +16,7 @@ Clock::Clock()
 	CreateWindow();
 	if (TTF_Init() < 0)
 		throw "TTF_Init";
-	m_Font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 250);
+	m_Font = TTF_OpenFont("/usr/share/fonts/truetype/crosextra/Caladea-Bold.ttf", 420);
 	if (!m_Font)
 		throw "TTF_OpenFont";
 }
