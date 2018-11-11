@@ -90,6 +90,20 @@ int Clock::HandleEvent(SDL_Event* pEvent)
 	case SDL_QUIT:
 		return -1;
 		break;
+	case SDL_KEYDOWN:
+		switch(pEvent->key.keysym.scancode)
+		{
+		case SDL_SCANCODE_ESCAPE:
+			if (pEvent->key.repeat == 0)
+				return -1;
+			break;
+		case SDL_SCANCODE_UP:
+			ColorUp();
+			break;
+		case SDL_SCANCODE_DOWN:
+			ColorDown();
+			break;
+		}
 	}
 	return 0;
 }
@@ -145,6 +159,19 @@ void Clock::DrawText(const std::string & sText, TTF_Font* const pFont, const SDL
 	}
 }
 
+void Clock::ColorUp()
+{
+	if (m_Color < 255)
+		++m_Color;
+	Tick();
+}
+
+void Clock::ColorDown()
+{
+	if (m_Color > 0)
+		--m_Color;
+	Tick();
+}
 
 int main(int argc, char* argv[])
 {

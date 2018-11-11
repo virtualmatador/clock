@@ -25,4 +25,6 @@ private:
 	int HandleEvent(SDL_Event* pEvent);
 	void Tick();
 	void DrawText(const std::string & sText, TTF_Font* const pFont, const SDL_Color & color, int * iY);
+	void ColorUp();
+	void ColorDown();
 };
