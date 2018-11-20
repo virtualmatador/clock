@@ -108,6 +108,9 @@ int Clock::HandleEvent(SDL_Event* pEvent)
 	case SDL_MOUSEBUTTONUP:
 		iResult = -1;
 		break;
+	case SDL_FINGERUP:
+		iResult = -1;
+		break;
 	}
 	return iResult;
 }
