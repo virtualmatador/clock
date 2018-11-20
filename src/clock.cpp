@@ -85,17 +85,18 @@ void Clock::Run()
 
 int Clock::HandleEvent(SDL_Event* pEvent)
 {
+	int iResult = 0;
 	switch (pEvent->type)
 	{
 	case SDL_QUIT:
-		return -1;
+		iResult = -1;
 		break;
 	case SDL_KEYDOWN:
 		switch(pEvent->key.keysym.scancode)
 		{
 		case SDL_SCANCODE_ESCAPE:
 			if (pEvent->key.repeat == 0)
-				return -1;
+				iResult = -1;
 			break;
 		case SDL_SCANCODE_UP:
 			ColorUp();
@@ -104,8 +105,11 @@ int Clock::HandleEvent(SDL_Event* pEvent)
 			ColorDown();
 			break;
 		}
+	case SDL_MOUSEBUTTONUP:
+		iResult = -1;
+		break;
 	}
-	return 0;
+	return iResult;
 }
 
 void Clock::Tick()
