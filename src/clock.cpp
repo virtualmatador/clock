@@ -111,28 +111,32 @@ int Clock::HandleEvent(SDL_Event* pEvent)
 void Clock::Tick()
 {
 	std::time_t t = std::chrono::system_clock::to_time_t(m_frameTime);
-	std::tm* now = std::localtime(&t);
+	std::tm* tmNow = std::localtime(&t);
 
 	int iY = 0;
 	if (SDL_RenderClear(m_pRen) == 0)
 	{
-		unsigned char iColor = m_Color * (std::sin(2.0 * std::atan(1) * 4.0 *
-				((now->tm_hour - 6) * 60 + now->tm_min) / 24.0 / 60.0) * 0.8 / 2.0 + 0.8 / 2.0 + 0.2);
+		unsigned char iColor;
+		if (tmNow->tm_hour < 6 || tmNow->tm_hour >= 18)
+			iColor = m_Color * 0.2;
+		else
+			iColor = m_Color * (std::sin(2.0 * std::atan(1) * 4.0 *
+				((tmNow->tm_hour - 9) * 60 + tmNow->tm_min) / 12.0 / 60.0) * 0.8 / 2.0 + 0.8 / 2.0 + 0.2);
 		SDL_Color color{iColor, iColor, iColor};
 		std::stringstream sTime;
 		sTime <<
-			std::setfill('0') << std::setw(2) << now->tm_hour << ":" <<
-			std::setfill('0') << std::setw(2) << now->tm_min << ":" <<
-			std::setfill('0') << std::setw(2) << now->tm_sec;
+			std::setfill('0') << std::setw(2) << tmNow->tm_hour << ":" <<
+			std::setfill('0') << std::setw(2) << tmNow->tm_min << ":" <<
+			std::setfill('0') << std::setw(2) << tmNow->tm_sec;
 		DrawText(sTime.str(), m_FontTime, color, &iY);
 		std::stringstream sDay;
-		sDay << Clock::m_WeekDays[now->tm_wday];
+		sDay << Clock::m_WeekDays[tmNow->tm_wday];
 		DrawText(sDay.str(), m_FontDate, color, &iY);
 		std::stringstream sDate;
 		sDate <<
-			now->tm_year + 1900 << "/" <<
-			std::setfill('0') << std::setw(2) << now->tm_mon + 1 << "/" <<
-			std::setfill('0') << std::setw(2) << now->tm_mday;
+			tmNow->tm_year + 1900 << "/" <<
+			std::setfill('0') << std::setw(2) << tmNow->tm_mon + 1 << "/" <<
+			std::setfill('0') << std::setw(2) << tmNow->tm_mday;
 		DrawText(sDate.str(), m_FontDate, color, &iY);
 	}
 	SDL_RenderPresent(m_pRen);
