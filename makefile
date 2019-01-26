@@ -1,5 +1,5 @@
 TARGET := clock
-LIBS := -lSDL2 -lSDL2_ttf
+LIBS := -lSDL2main -lSDL2 -lSDL2_ttf
 
 DEBUG := $(if $(shell git symbolic-ref --short HEAD | grep master), , -g)
 SOURCES := $(wildcard src/*.cpp)
@@ -9,8 +9,14 @@ CC := g++
 
 .PHONY: clean, install, uninstall
 
-$(TARGET): $(OBJECTS) $(SHADERS)
-	$(CC) -o $@ $(OBJECTS) $(LIBS) -no-pie
+all: build
+
+Windows: TARGET := clock.exe
+Windows: CC := x86_64-w64-mingw32-g++ -lmingw32 -static-libstdc++ -static-libgcc
+Windows: build
+
+build: $(OBJECTS) $(SHADERS)
+	$(CC) -o $(TARGET) $(OBJECTS) $(LIBS) -no-pie -Wl,--format=binary -Wl,res/Carlito-Bold.ttf -Wl,--format=default
 
 clean:
 	$(RM) -r build/

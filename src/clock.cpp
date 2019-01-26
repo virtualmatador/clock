@@ -28,10 +28,12 @@ Clock::Clock()
 	CreateWindow();
 	if (TTF_Init() < 0)
 		throw "TTF_Init";
-	m_FontTime = TTF_OpenFont("/usr/share/fonts/truetype/crosextra/Carlito-Bold.ttf", 500);
+	m_FontSource = SDL_RWFromConstMem(_binary_res_Carlito_Bold_ttf_start,
+		_binary_res_Carlito_Bold_ttf_end - _binary_res_Carlito_Bold_ttf_start);
+	m_FontTime = TTF_OpenFontRW(m_FontSource, false, 500);
 	if (!m_FontTime)
 		throw "TTF_OpenFont";
-	m_FontDate = TTF_OpenFont("/usr/share/fonts/truetype/crosextra/Carlito-Bold.ttf", 240);
+	m_FontDate = TTF_OpenFontRW(m_FontSource, false, 240);
 	if (!m_FontDate)
 		throw "TTF_OpenFont";
 }
@@ -41,6 +43,7 @@ Clock::~Clock()
 	TTF_CloseFont(m_FontTime);
 	TTF_CloseFont(m_FontDate);
 	TTF_Quit();
+	SDL_RWclose(m_FontSource);
 	SDL_DestroyRenderer(m_pRen);
 	SDL_DestroyWindow(m_pWnd);
 	SDL_Quit();
