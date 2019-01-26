@@ -30,10 +30,10 @@ Clock::Clock()
 		throw "TTF_Init";
 	m_FontSource = SDL_RWFromConstMem(_binary_res_Carlito_Bold_ttf_start,
 		_binary_res_Carlito_Bold_ttf_end - _binary_res_Carlito_Bold_ttf_start);
-	m_FontTime = TTF_OpenFontRW(m_FontSource, false, 500);
+	m_FontTime = TTF_OpenFontRW(m_FontSource, false, m_iWidth / 4);
 	if (!m_FontTime)
 		throw "TTF_OpenFont";
-	m_FontDate = TTF_OpenFontRW(m_FontSource, false, 240);
+	m_FontDate = TTF_OpenFontRW(m_FontSource, false, m_iWidth / 8);
 	if (!m_FontDate)
 		throw "TTF_OpenFont";
 }
