@@ -108,6 +108,7 @@ int Clock::HandleEvent(SDL_Event* pEvent)
 			ColorDown();
 			break;
 		}
+		break;
 	case SDL_MOUSEBUTTONUP:
 		iResult = -1;
 		break;
