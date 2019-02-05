@@ -16,7 +16,7 @@ OBJECTS_WINDOWS := $(patsubst src/%.cpp, $(BUILD_WINDOWS)/%.o, $(SOURCES))
 CC_WINDOWS := x86_64-w64-mingw32-g++
 LIBS_WINDOWS := -lmingw32 -static-libstdc++ -static-libgcc $(LIBS)
 
-.PHONY: clean
+.PHONY: clean, install, uninstall
 
 all: $(TARGET_LINUX) $(TARGET_WINDOWS)
 
@@ -42,3 +42,20 @@ clean:
 	$(RM) -r $(BIN_LINUX)/
 	$(RM) -r $(BUILD_WINDOWS)/
 	$(RM) -r $(BIN_WINDOWS)/
+
+install:
+	@echo "clock installing ..."
+	sudo mkdir -p /var/wwz/www.shaidin.com/html/clock/
+	rm -f bin_linux/clock.zip
+	cd bin_linux && zip clock.zip clock && cd ..
+	sudo cp bin_linux/clock.zip /var/wwz/www.shaidin.com/html/clock/
+	rm -f bin_windows/Clock.exe.zip
+	cd bin_windows && zip Clock.exe.zip Clock.exe && cd ..
+	sudo cp bin_windows/Clock.exe.zip /var/wwz/www.shaidin.com/html/clock/
+	@echo "clock installed."
+
+uninstall:
+	@echo "clock uninstalling ..."
+	sudo rm -f /var/wwz/www.shaidin.com/html/clock/clock.zip
+	sudo rm -f /var/wwz/www.shaidin.com/html/clock/Clock.exe.zip
+	@echo "clock uninstalled."

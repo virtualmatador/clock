@@ -2,15 +2,68 @@
 
 echo "Clock configuring ..."
 
-PREREQUESTIES="make g++ libsdl2-dev libsdl2-ttf-dev"
-for prerequest in $PREREQUESTIES
+PREREQUESTIES=( \
+    "make" \
+    "g++" \
+    "mingw-w64" \
+    "libsdl2-dev" \
+    "libsdl2-ttf-dev" \
+)
+DOWNLOADS=( \
+    "https://www.libsdl.org/release/SDL2-devel-2.0.9-mingw.tar.gz" \
+    "https://www.libsdl.org/projects/SDL_ttf/release/SDL2_ttf-devel-2.0.15-mingw.tar.gz" \
+)
+PATHES=( \
+    "SDL2-2.0.9/x86_64-w64-mingw32/" \
+    "SDL2_ttf-2.0.15/x86_64-w64-mingw32/" \
+)
+
+for ((i = 0; i < ${#PREREQUESTIES[@]}; ++i))
 do
-    if [ "$(dpkg -l | grep '^ii' | awk '{print $2}' | grep '^$prerequest\$')" == "" ]
+    if [ "$(dpkg -l | grep '^ii' | awk '{print $2}' | grep "^${PREREQUESTIES[i]}\(:\|$\)")" == "" ]
     then
-        sudo apt -y -qq install $prerequest
-    else
-        echo $prerequest is present.
+        if ! sudo apt -y -qq install ${PREREQUESTIES[i]}
+        then
+            echo "Failed to install ${PREREQUESTIES[i]}."
+            exit -1
+        fi
     fi
 done
+
+mkdir -p deps
+cd deps
+for ((i = 0; i < ${#DOWNLOADS[@]}; ++i))
+do
+    FileName=$(basename "${DOWNLOADS[i]}")
+    if [ ! -f ${FileName} ]
+    then
+        if ! wget ${DOWNLOADS[i]}
+        then
+            echo "Failed to download ${DOWNLOADS[i]}."
+            exit -1
+        fi
+        if [ $(echo ${FileName: -4} | tr '[:upper:]' '[:lower:]') == ".zip" ]
+        then
+            if ! unzip ${FileName}
+            then
+                echo "Failed to unzip ${FileName}."
+                exit -1
+            fi
+        elif [ $(echo ${FileName: -7} | tr '[:upper:]' '[:lower:]') == ".tar.gz" ]
+        then
+            if ! tar -xvzf ${FileName}
+            then
+                echo "Failed to unzip ${FileName}."
+                exit -1
+            fi
+        else
+            echo "Unknown file type ${FileName}."
+            exit -1
+        fi
+        sudo cp -r ${PATHES[i]}/lib/ /usr/x86_64-w64-mingw32/
+        sudo cp -r ${PATHES[i]}/include/ /usr/x86_64-w64-mingw32/
+    fi
+done
+cd ..
 
 echo "Clock configured."
