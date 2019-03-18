@@ -1,9 +1,13 @@
 #include "clock.h"
 #include <iostream>
+#include <fstream>
 #include <ctime>
 #include <sstream>
 #include <iomanip>
 #include <cmath>
+
+#define AUDIO_FREQUENCY 48000
+#define SEGMENT_COUNT 32
 
 const char* Clock::m_WeekDays[] =
 {
@@ -16,14 +20,22 @@ const char* Clock::m_WeekDays[] =
 	"SAT",
 };
 
+void PlayDing(void* pData, unsigned char* pBuffer, int Length)
+{
+	((Clock*)pData)->PlayDing(pBuffer, Length);
+}
+
 Clock::Clock()
 	: m_pWnd{nullptr}
 	, m_pRen{nullptr}
 	, m_Color{255}
 	, m_iWidth{0}
 	, m_frameTime{std::chrono::nanoseconds(0)}
+	, m_Audio{0}
+	, m_Dings{0}
+	, m_Alarm{false}
 {
-	if (SDL_Init(SDL_INIT_VIDEO) < 0)
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
 		throw "SDL_INIT";
 	CreateWindow();
 	if (TTF_Init() < 0)
@@ -36,10 +48,12 @@ Clock::Clock()
 	m_FontDate = TTF_OpenFontRW(m_FontSource, false, m_iWidth / 8);
 	if (!m_FontDate)
 		throw "TTF_OpenFont";
+	CreateAudio();
 }
 
 Clock::~Clock()
 {
+	SDL_CloseAudioDevice(m_Audio);
 	TTF_CloseFont(m_FontTime);
 	TTF_CloseFont(m_FontDate);
 	TTF_Quit();
@@ -62,6 +76,21 @@ void Clock::CreateWindow()
 		throw "SDL_CreateRenderer";
 }
 
+void Clock::CreateAudio()
+{
+	SDL_AudioSpec Alarm;
+	SDL_zero(Alarm);
+    Alarm.freq = AUDIO_FREQUENCY;
+    Alarm.format = AUDIO_S16SYS;
+    Alarm.channels = 1;
+    Alarm.samples = AUDIO_FREQUENCY / SEGMENT_COUNT;
+    Alarm.callback = ::PlayDing;
+    Alarm.userdata = this;
+	m_Audio = SDL_OpenAudioDevice(nullptr, 0, &Alarm, nullptr, SDL_AUDIO_ALLOW_ANY_CHANGE);
+ 	if (!m_Audio)
+		throw "SDL_CreateAudio";
+}
+
 void Clock::Run()
 {
 	for(;;)
@@ -72,7 +101,7 @@ void Clock::Run()
 		if (now != m_frameTime)
 		{
 			m_frameTime = now;
-			Tick();
+			Tick(false);
 		}
 		else
 		{
@@ -107,6 +136,9 @@ int Clock::HandleEvent(SDL_Event* pEvent)
 		case SDL_SCANCODE_DOWN:
 			ColorDown();
 			break;
+		case SDL_SCANCODE_SPACE:
+			Silent();
+			break;
 		}
 		break;
 	case SDL_MOUSEBUTTONUP:
@@ -119,38 +151,69 @@ int Clock::HandleEvent(SDL_Event* pEvent)
 	return iResult;
 }
 
-void Clock::Tick()
+void Clock::Tick(bool ForceUpdate)
 {
+	static std::time_t tPre{0};
 	std::time_t t = std::chrono::system_clock::to_time_t(m_frameTime);
-	std::tm* tmNow = std::localtime(&t);
-
-	int iY = 0;
-	if (SDL_RenderClear(m_pRen) == 0)
+	if (ForceUpdate || tPre != t)
 	{
-		unsigned char iColor;
-		if (tmNow->tm_hour < 6 || tmNow->tm_hour >= 18)
-			iColor = m_Color * 0.2;
-		else
-			iColor = m_Color * (std::sin(2.0 * std::atan(1) * 4.0 *
-				((tmNow->tm_hour - 9) * 60 + tmNow->tm_min) / 12.0 / 60.0) * 0.8 / 2.0 + 0.8 / 2.0 + 0.2);
-		SDL_Color color{iColor, iColor, iColor};
-		std::stringstream sTime;
-		sTime <<
-			std::setfill('0') << std::setw(2) << tmNow->tm_hour << ":" <<
-			std::setfill('0') << std::setw(2) << tmNow->tm_min << ":" <<
-			std::setfill('0') << std::setw(2) << tmNow->tm_sec;
-		DrawText(sTime.str(), m_FontTime, color, &iY);
-		std::stringstream sDay;
-		sDay << Clock::m_WeekDays[tmNow->tm_wday];
-		DrawText(sDay.str(), m_FontDate, color, &iY);
-		std::stringstream sDate;
-		sDate <<
-			tmNow->tm_year + 1900 << "/" <<
-			std::setfill('0') << std::setw(2) << tmNow->tm_mon + 1 << "/" <<
-			std::setfill('0') << std::setw(2) << tmNow->tm_mday;
-		DrawText(sDate.str(), m_FontDate, color, &iY);
+		std::tm* ptmNow = std::localtime(&t);
+		int iY = 0;
+		if (SDL_RenderClear(m_pRen) == 0)
+		{
+			unsigned char iColor;
+			if (ptmNow->tm_hour < 6 || ptmNow->tm_hour >= 18)
+				iColor = m_Color * 0.2;
+			else
+				iColor = m_Color * (std::sin(2.0 * std::atan(1) * 4.0 *
+					((ptmNow->tm_hour - 9) * 60 + ptmNow->tm_min) / 12.0 / 60.0) * 0.8 / 2.0 + 0.8 / 2.0 + 0.2);
+			SDL_Color color{iColor, iColor, iColor};
+			std::stringstream sTime;
+			sTime <<
+				std::setfill('0') << std::setw(2) << ptmNow->tm_hour << ":" <<
+				std::setfill('0') << std::setw(2) << ptmNow->tm_min << ":" <<
+				std::setfill('0') << std::setw(2) << ptmNow->tm_sec;
+			DrawText(sTime.str(), m_FontTime, color, &iY);
+			std::stringstream sDay;
+			sDay << Clock::m_WeekDays[ptmNow->tm_wday];
+			DrawText(sDay.str(), m_FontDate, color, &iY);
+			std::stringstream sDate;
+			sDate <<
+				ptmNow->tm_year + 1900 << "/" <<
+				std::setfill('0') << std::setw(2) << ptmNow->tm_mon + 1 << "/" <<
+				std::setfill('0') << std::setw(2) << ptmNow->tm_mday;
+			DrawText(sDate.str(), m_FontDate, color, &iY);
+		}
+		SDL_RenderPresent(m_pRen);
+		static int MinPre = -1;
+		if (tPre != t)
+		{
+			if (MinPre != ptmNow->tm_min)
+			{
+				m_Alarm = false;
+				std::ifstream Settings(".clock");
+				std::string Time;
+				while (!m_Alarm && std::getline(Settings, Time))
+				{
+					std::istringstream iss(Time);
+					char colon;
+					int Hour, Minute;
+					if (iss >> Hour >> colon >> Minute)
+					{
+						if (colon == ':' && Hour == ptmNow->tm_hour && Minute == ptmNow->tm_min)
+							m_Alarm = true;
+					}
+				}
+				MinPre = ptmNow->tm_min;
+			}
+			if (m_Alarm)
+			{
+				m_Dings = 4;
+				SDL_PauseAudioDevice(m_Audio, 0);
+			}
+		}
+		tPre = t;
 	}
-	SDL_RenderPresent(m_pRen);
 }
 
 void Clock::DrawText(const std::string & sText, TTF_Font* const pFont, const SDL_Color & color, int * piY)
@@ -178,14 +241,59 @@ void Clock::ColorUp()
 {
 	if (m_Color < 255)
 		++m_Color;
-	Tick();
+	Tick(true);
 }
 
 void Clock::ColorDown()
 {
 	if (m_Color > 0)
 		--m_Color;
-	Tick();
+	Tick(true);
+}
+
+void Clock::Silent()
+{
+	m_Alarm = false;
+}
+
+void Clock::PlayDing(unsigned char* pBuffer, int Length)
+{
+	static int m_AudioPos = 0;
+	if (m_Dings > 0)
+	{
+		float fVolumeBegin, fVolumeChange;
+		if (m_AudioPos == 0)
+		{
+			fVolumeBegin = 0;
+			fVolumeChange = 1;
+			++m_AudioPos;
+		}
+		else if (m_AudioPos < 3)
+		{
+			fVolumeBegin = 1;
+			fVolumeChange = 0;
+			++m_AudioPos;
+		}
+		else
+		{
+			fVolumeBegin = 1;
+			fVolumeChange = -1;
+			m_AudioPos = 0;
+			--m_Dings;
+		}
+		for (int i = 0; i < Length / sizeof(short); ++i)
+			((short*)pBuffer)[i] = 24000.0f * (fVolumeBegin + fVolumeChange * i / (Length / sizeof(short))) *
+			(
+				sin(float(1046 / SEGMENT_COUNT * i) / (Length / sizeof(short)) * 8.0f * atan(1.0f)) * 0.5f+
+				sin(float(2093 / SEGMENT_COUNT * i) / (Length / sizeof(short)) * 8.0f * atan(1.0f)) * 1.0f+
+				0.0f
+			) / 1.5f;
+	}
+	else
+	{
+		SDL_memset(pBuffer, 0, Length);
+		SDL_PauseAudioDevice(m_Audio, 1);
+	}
 }
 
 int main(int argc, char* argv[])
