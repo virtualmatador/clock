@@ -31,6 +31,7 @@ Clock::Clock()
 	, m_Color{255}
 	, m_iWidth{0}
 	, m_frameTime{std::chrono::nanoseconds(0)}
+	, m_pNow{nullptr}
 	, m_Audio{0}
 	, m_Dings{0}
 	, m_Alarm{false}
@@ -157,62 +158,72 @@ void Clock::Tick(bool ForceUpdate)
 	std::time_t t = std::chrono::system_clock::to_time_t(m_frameTime);
 	if (ForceUpdate || tPre != t)
 	{
-		std::tm* ptmNow = std::localtime(&t);
-		int iY = 0;
-		if (SDL_RenderClear(m_pRen) == 0)
-		{
-			unsigned char iColor;
-			if (ptmNow->tm_hour < 6 || ptmNow->tm_hour >= 18)
-				iColor = m_Color * 0.2;
-			else
-				iColor = m_Color * (std::sin(2.0 * std::atan(1) * 4.0 *
-					((ptmNow->tm_hour - 9) * 60 + ptmNow->tm_min) / 12.0 / 60.0) * 0.8 / 2.0 + 0.8 / 2.0 + 0.2);
-			SDL_Color color{iColor, iColor, iColor};
-			std::stringstream sTime;
-			sTime <<
-				std::setfill('0') << std::setw(2) << ptmNow->tm_hour << ":" <<
-				std::setfill('0') << std::setw(2) << ptmNow->tm_min << ":" <<
-				std::setfill('0') << std::setw(2) << ptmNow->tm_sec;
-			DrawText(sTime.str(), m_FontTime, color, &iY);
-			std::stringstream sDay;
-			sDay << Clock::m_WeekDays[ptmNow->tm_wday];
-			DrawText(sDay.str(), m_FontDate, color, &iY);
-			std::stringstream sDate;
-			sDate <<
-				ptmNow->tm_year + 1900 << "/" <<
-				std::setfill('0') << std::setw(2) << ptmNow->tm_mon + 1 << "/" <<
-				std::setfill('0') << std::setw(2) << ptmNow->tm_mday;
-			DrawText(sDate.str(), m_FontDate, color, &iY);
-		}
-		SDL_RenderPresent(m_pRen);
-		static int MinPre = -1;
+		m_pNow = std::localtime(&t);
+		Redraw();
 		if (tPre != t)
 		{
-			if (MinPre != ptmNow->tm_min)
+			CheckAlarm();
+			tPre = t;
+		}
+	}
+}
+
+void Clock::Redraw()
+{
+	int iY = 0;
+	if (SDL_RenderClear(m_pRen) == 0)
+	{
+		unsigned char iColor;
+		if (m_pNow->tm_hour < 6 || m_pNow->tm_hour >= 18)
+			iColor = m_Color * 0.2;
+		else
+			iColor = m_Color * (std::sin(2.0 * std::atan(1) * 4.0 *
+				((m_pNow->tm_hour - 9) * 60 + m_pNow->tm_min) / 12.0 / 60.0) * 0.8 / 2.0 + 0.8 / 2.0 + 0.2);
+		SDL_Color color{iColor, iColor, iColor};
+		std::stringstream sTime;
+		sTime <<
+			std::setfill('0') << std::setw(2) << m_pNow->tm_hour << ":" <<
+			std::setfill('0') << std::setw(2) << m_pNow->tm_min << ":" <<
+			std::setfill('0') << std::setw(2) << m_pNow->tm_sec;
+		DrawText(sTime.str(), m_FontTime, color, &iY);
+		std::stringstream sDay;
+		sDay << Clock::m_WeekDays[m_pNow->tm_wday];
+		DrawText(sDay.str(), m_FontDate, color, &iY);
+		std::stringstream sDate;
+		sDate <<
+			m_pNow->tm_year + 1900 << "/" <<
+			std::setfill('0') << std::setw(2) << m_pNow->tm_mon + 1 << "/" <<
+			std::setfill('0') << std::setw(2) << m_pNow->tm_mday;
+		DrawText(sDate.str(), m_FontDate, color, &iY);
+	}
+	SDL_RenderPresent(m_pRen);
+}
+
+void Clock::CheckAlarm()
+{
+	static int MinPre = -1;
+	if (MinPre != m_pNow->tm_min)
+	{
+		m_Alarm = false;
+		std::ifstream Settings(".clock");
+		std::string Time;
+		while (!m_Alarm && std::getline(Settings, Time))
+		{
+			std::istringstream iss(Time);
+			char colon;
+			int Hour, Minute;
+			if (iss >> Hour >> colon >> Minute)
 			{
-				m_Alarm = false;
-				std::ifstream Settings(".clock");
-				std::string Time;
-				while (!m_Alarm && std::getline(Settings, Time))
-				{
-					std::istringstream iss(Time);
-					char colon;
-					int Hour, Minute;
-					if (iss >> Hour >> colon >> Minute)
-					{
-						if (colon == ':' && Hour == ptmNow->tm_hour && Minute == ptmNow->tm_min)
-							m_Alarm = true;
-					}
-				}
-				MinPre = ptmNow->tm_min;
-			}
-			if (m_Alarm)
-			{
-				m_Dings = 4;
-				SDL_PauseAudioDevice(m_Audio, 0);
+				if (colon == ':' && Hour == m_pNow->tm_hour && Minute == m_pNow->tm_min)
+					m_Alarm = true;
 			}
 		}
-		tPre = t;
+		MinPre = m_pNow->tm_min;
+	}
+	if (m_Alarm)
+	{
+		m_Dings = 4;
+		SDL_PauseAudioDevice(m_Audio, 0);
 	}
 }
 
@@ -284,10 +295,11 @@ void Clock::PlayDing(unsigned char* pBuffer, int Length)
 		for (int i = 0; i < Length / sizeof(short); ++i)
 			((short*)pBuffer)[i] = 24000.0f * (fVolumeBegin + fVolumeChange * i / (Length / sizeof(short))) *
 			(
-				sin(float(1046 / SEGMENT_COUNT * i) / (Length / sizeof(short)) * 8.0f * atan(1.0f)) * 0.5f+
-				sin(float(2093 / SEGMENT_COUNT * i) / (Length / sizeof(short)) * 8.0f * atan(1.0f)) * 1.0f+
+				sin(float(1046 / SEGMENT_COUNT * i) / (Length / sizeof(short)) * 8.0f * atan(1.0f)) * 0.12f +
+				sin(float(2092 / SEGMENT_COUNT * i) / (Length / sizeof(short)) * 8.0f * atan(1.0f)) * 0.24f +
+				sin(float(3138 / SEGMENT_COUNT * i) / (Length / sizeof(short)) * 8.0f * atan(1.0f)) * 0.64f +
 				0.0f
-			) / 1.5f;
+			);
 	}
 	else
 	{

@@ -19,10 +19,13 @@ private:
 	TTF_Font* m_FontDate;
 	int m_iWidth;
 	std::chrono::system_clock::time_point m_frameTime;
-	static const char* m_WeekDays[];
+	std::tm* m_pNow;
 	SDL_AudioDeviceID m_Audio;
 	std::atomic<int> m_Dings;
 	bool m_Alarm;
+
+private:
+	static const char* m_WeekDays[];
 
 public:
 	Clock();
@@ -35,6 +38,8 @@ private:
 	void CreateAudio();
 	int HandleEvent(SDL_Event* pEvent);
 	void Tick(bool ForceUpdate);
+	void Redraw();
+	void CheckAlarm();
 	void DrawText(const std::string & sText, TTF_Font* const pFont, const SDL_Color & color, int * iY);
 	void ColorUp();
 	void ColorDown();
