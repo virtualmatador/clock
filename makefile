@@ -1,6 +1,7 @@
 LIBS := -lSDL2main -lSDL2 -lSDL2_ttf
 DEBUG := $(if $(shell git symbolic-ref --short HEAD | grep master), , -g)
 SOURCES := $(wildcard src/*.cpp)
+RESOURCES := res/Font.ttf
 
 BIN_LINUX := bin_linux
 TARGET_LINUX := $(BIN_LINUX)/clock
@@ -21,9 +22,9 @@ LIBS_WINDOWS := -lmingw32 -static-libstdc++ -static-libgcc $(LIBS)
 all: $(TARGET_LINUX) $(TARGET_WINDOWS)
 
 define PROGRAM_template
-$(1): $(2) $(SHADERS)
+$(1): $(2) $(RESOURCES)
 	mkdir -p $(3)
-	$(4) -o $$@ $(2) $(5) -no-pie -Wl,--format=binary -Wl,res/Carlito-Bold.ttf -Wl,--format=default
+	$(4) -o $$@ $(2) $(5) -no-pie -Wl,--format=binary -Wl,$(RESOURCES) -Wl,--format=default
 endef
 
 $(eval $(call PROGRAM_template, $(TARGET_LINUX), $(OBJECTS_LINUX), $(BIN_LINUX), $(CC_LINUX), $(LIBS_LINUX)))
