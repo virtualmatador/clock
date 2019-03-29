@@ -7,6 +7,12 @@
 extern const unsigned char _binary_res_Font_ttf_end[];
 extern const unsigned char _binary_res_Font_ttf_start[];
 
+struct CHIME
+{
+	int Pos;
+	double Volume;
+	int Type;
+};
 
 class Clock
 {
@@ -20,10 +26,11 @@ private:
 	int m_iWidth;
 	std::chrono::system_clock::time_point m_frameTime;
 	std::tm* m_pNow;
+	double m_Tence;
 	bool m_Chime;
 	bool m_Alarm;
 	SDL_AudioDeviceID m_Audio;
-	std::list<int> m_Dings;
+	std::list<CHIME> m_Dings;
 
 private:
 	static const char* m_WeekDays[];
@@ -42,7 +49,7 @@ private:
 	void Redraw();
 	void CheckBell();
 	void DrawText(const std::string & sText, TTF_Font* const pFont, const SDL_Color & color, int * iY);
-	void Bell(int Count);
+	void Bell(int Count, int Interval, double VolumeMin, double VolumeMax);
 	void ColorUp();
 	void ColorDown();
 	void Silent();

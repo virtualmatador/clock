@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <cmath>
 
+#define TENCE_MIN 0.2
 #define SAMPLE_COUNT 1500
 #define SEGMENT_COUNT 32
 
@@ -32,6 +33,7 @@ Clock::Clock()
 	, m_iWidth{0}
 	, m_frameTime{std::chrono::nanoseconds(0)}
 	, m_pNow{nullptr}
+	, m_Tence{0}
 	, m_Chime{false}
 	, m_Alarm{false}
 	, m_Audio{0}
@@ -170,6 +172,11 @@ void Clock::Tick()
 	if (tPre != t)
 	{
 		m_pNow = std::localtime(&t);
+		if (m_pNow->tm_hour < 6 || m_pNow->tm_hour >= 18)
+			m_Tence = TENCE_MIN;
+		else
+			m_Tence = std::sin(8.0 * std::atan(1) * ((m_pNow->tm_hour - 9) * 60 + m_pNow->tm_min) / 12.0 / 60.0)
+				* (1.0 - TENCE_MIN) / 2.0 + (1.0 - TENCE_MIN) / 2.0 + TENCE_MIN;
 		Redraw();
 		CheckBell();
 		tPre = t;
@@ -181,13 +188,7 @@ void Clock::Redraw()
 	int iY = 0;
 	if (SDL_RenderClear(m_pRen) == 0)
 	{
-		unsigned char iColor;
-		if (m_pNow->tm_hour < 6 || m_pNow->tm_hour >= 18)
-			iColor = m_Color * 0.2;
-		else
-			iColor = m_Color * (std::sin(2.0 * std::atan(1) * 4.0 *
-				((m_pNow->tm_hour - 9) * 60 + m_pNow->tm_min) / 12.0 / 60.0) * 0.8 / 2.0 + 0.8 / 2.0 + 0.2);
-		SDL_Color color{iColor, iColor, iColor};
+		SDL_Color color{m_Color * m_Tence, m_Color * m_Tence, m_Color * m_Tence};
 
 		std::stringstream sTime;
 		sTime <<
@@ -233,7 +234,7 @@ void Clock::CheckBell()
 				{
 					if (colon == ':' && Hour == m_pNow->tm_hour && Minute == m_pNow->tm_min)
 					{
-						Bell(24);
+						Bell(16, 3, TENCE_MIN, 1.0);
 						Alarm = true;
 						break;
 					}
@@ -247,7 +248,7 @@ void Clock::CheckBell()
 				int Count = m_pNow->tm_hour % 12;
 				if (Count == 0)
 					Count = 12;
-				Bell(Count);
+				Bell(Count, 2, m_Tence, m_Tence);
 			}
 		}
 		MinPre = m_pNow->tm_min;
@@ -275,13 +276,14 @@ void Clock::DrawText(const std::string & sText, TTF_Font* const pFont, const SDL
 	}
 }
 
-void Clock::Bell(int Count)
+void Clock::Bell(int Count, int Interval, double VolumeMin, double VolumeMax)
 {
+	int Type = 12 * ((m_Tence - TENCE_MIN) / (1.0 - TENCE_MIN));
 	SDL_LockAudioDevice(m_Audio);
 	if (m_Dings.empty())
 	{
 		for (int i = 0; i < Count; ++i)
-			m_Dings.push_back(-i * 2 * SEGMENT_COUNT * SAMPLE_COUNT);
+			m_Dings.push_back({-i * Interval * SEGMENT_COUNT * SAMPLE_COUNT, VolumeMin + (VolumeMax - VolumeMin) * i / Count, Type});
 	}
 	SDL_UnlockAudioDevice(m_Audio);
 	SDL_PauseAudioDevice(m_Audio, 0);
@@ -304,7 +306,7 @@ void Clock::ColorDown()
 void Clock::Silent()
 {
 	SDL_LockAudioDevice(m_Audio);
-	m_Dings.remove_if([](auto & i){return i <= 0;});
+	m_Dings.remove_if([](auto & Chime){return Chime.Pos <= 0;});
 	SDL_UnlockAudioDevice(m_Audio);
 }
 
@@ -322,41 +324,36 @@ void Clock::ToggleChime()
 
 void Clock::RingBell()
 {
-	Bell(2);
+	Bell(2, 3, m_Tence, m_Tence);
 }
 
 void Clock::PlayDing(unsigned char* pBuffer, int Length)
 {
-	static const int Nominal[] =
+	static const double Frequency[12][5] =
 	{
-		0,500,750,980,800,400,420,380,340,360,320,280,250,220,190,170,150,140,130,120,110,100,90,80,70,60,50,40,30,20,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,0
+		{880.0,440.0,523.25,220.0,587.33},
+		{880.0,440.0,523.25,220.0,587.33},
+		{880.0,440.0,523.25,220.0,587.33},
+		{880.0,440.0,523.25,220.0,587.33},
+		{880.0,440.0,523.25,220.0,587.33},
+		{880.0,440.0,523.25,220.0,587.33},
+		{880.0,440.0,523.25,220.0,587.33},
+		{880.0,440.0,523.25,220.0,587.33},
+		{880.0,440.0,523.25,220.0,587.33},
+		{880.0,440.0,523.25,220.0,587.33},
+		{880.0,440.0,523.25,220.0,587.33},
+		{880.0,440.0,523.25,220.0,587.33},
 	};
-	static const int Prime[] =
+	static const int Amplitude[5][81] =
 	{
-		0,380,340,250,300,400,450,500,530,550,540,530,540,550,560,570,580,560,540,500,450,420,450,500,400,350,360,370,360,350,340,320,330,300,310,280,290,260,270,240,250,220,230,200,210,180,190,160,170,140,150,120,130,100,110,100,100,90,90,80,80,70,70,60,60,50,50,40,40,30,30,20,20,10,10,10,10,10,10,10,0
+		{0,5000,7500,9800,8000,4000,4200,3800,3400,3600,3200,2800,2500,2200,1900,1700,1500,1400,1300,1200,1100,1000,900,800,700,600,500,400,300,200,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,0},
+		{0,3800,3400,2500,3000,4000,4500,5000,5300,5500,5400,5300,5400,5500,5600,5700,5800,5600,5400,5000,4500,4200,4500,5000,4000,3500,3600,3700,3600,3500,3400,3200,3300,3000,3100,2800,2900,2600,2700,2400,2500,2200,2300,2000,2100,1800,1900,1600,1700,1400,1500,1200,1300,1000,1100,1000,1000,900,900,800,800,700,700,600,600,500,500,400,400,300,300,200,200,100,100,100,100,100,100,100,0},
+		{0,3000,1700,1400,1500,1600,2200,2300,2500,2700,2800,2900,3000,3100,3000,2900,2800,2700,2600,2700,2900,3000,3200,3400,3300,3100,3000,2800,2700,2500,2300,2400,2500,3000,3200,3300,3600,3500,3200,3000,2800,2600,2500,2700,2400,2500,2200,2300,2000,2100,1800,1900,1600,1700,1400,1500,1200,1300,1000,1000,900,900,800,800,700,700,600,600,500,500,400,400,300,300,200,200,100,100,100,100,0},
+		{0,600,800,900,1000,1000,1100,1100,1200,1200,1300,1300,1400,1400,1500,1500,1600,1600,1700,1700,1800,1800,1900,1900,2000,2000,2100,2100,2200,2200,2300,2300,2400,2400,2500,2500,2400,2400,2500,2500,2400,2400,2400,2300,2300,2300,2200,2200,2200,2100,2100,2100,2000,2000,2000,1900,1900,1900,1800,1800,1800,1700,1700,1700,1600,1600,1600,1500,1500,1400,1300,1200,1100,1000,800,600,400,300,200,100,0},
+		{0,1500,500,2000,1800,1600,1400,1300,1200,1100,1000,900,800,700,600,500,800,1000,800,700,600,900,700,900,800,700,600,500,400,600,800,700,600,500,400,300,200,100,200,100,200,100,200,100,200,100,200,100,200,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,0},
 	};
-	static const int Tierce[] =
-	{
-		0,300,170,140,150,160,220,230,250,270,280,290,300,310,300,290,280,270,260,270,290,300,320,340,330,310,300,280,270,250,230,240,250,300,320,330,360,350,320,300,280,260,250,270,240,250,220,230,200,210,180,190,160,170,140,150,120,130,100,100,90,90,80,80,70,70,60,60,50,50,40,40,30,30,20,20,10,10,10,10,0
-	};
-	static const int Hum[] =
-	{
-		0,60,80,90,100,100,110,110,120,120,130,130,140,140,150,150,160,160,170,170,180,180,190,190,200,200,210,210,220,220,230,230,240,240,250,250,240,240,250,250,240,240,240,230,230,230,220,220,220,210,210,210,200,200,200,190,190,190,180,180,180,170,170,170,160,160,160,150,150,140,130,120,110,100,80,60,40,30,20,10,0
-	};
-	static const int Quint[] =
-	{
-		0,150,50,200,180,160,140,130,120,110,100,90,80,70,60,50,80,100,80,70,60,90,70,90,80,70,60,50,40,60,80,70,60,50,40,30,20,10,20,10,20,10,20,10,20,10,20,10,20,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,0
-	};
-
-	static const int AmplitudeCount = sizeof(Nominal) / sizeof(*Nominal) - 1;
-
-	static const double NominalFrequency = 880.0;
-	static const double PrimeFrequency = 440.0;
-	static const double TierceFrequency = 523.25;
-	static const double HumFrequency = 220.0;
-	static const double QuintFrequency = 587.33;
-
-	static const int Duration = 3;
+	static const int AmplitudeCount = sizeof(*Amplitude) / sizeof(**Amplitude) - 1;
+	static const int Duration = 4;
 
 	SDL_memset(pBuffer, 0, Length);
 	SDL_LockAudioDevice(m_Audio);
@@ -366,29 +363,21 @@ void Clock::PlayDing(unsigned char* pBuffer, int Length)
 	{
 		for (auto it = m_Dings.begin(); it != m_Dings.end(); ++it)
 		{
-			if (*it < 0)
-				*it += SAMPLE_COUNT;
+			if (it->Pos < 0)
+				it->Pos += SAMPLE_COUNT;
 			else
 			{
 				for (int i = 0; i < SAMPLE_COUNT; ++i)
 				{
-					int Low = *it / (Duration * SEGMENT_COUNT * SAMPLE_COUNT / AmplitudeCount);
-					double Mod = *it % (Duration * SEGMENT_COUNT * SAMPLE_COUNT / AmplitudeCount);
-					((short*)pBuffer)[i] += 6 * (
-						(Nominal[Low] + Mod / (Duration * SEGMENT_COUNT * SAMPLE_COUNT / AmplitudeCount) * (Nominal[Low + 1] - Nominal[Low])) *
-						sin(*it * atan(1.0) * ((NominalFrequency - *it / 80000.0) * 8.0 / (SEGMENT_COUNT * SAMPLE_COUNT))) +
-						(Prime[Low] + Mod / (Duration * SEGMENT_COUNT * SAMPLE_COUNT / AmplitudeCount) * (Prime[Low + 1] - Prime[Low])) *
-						sin(*it * atan(1.0) * ((PrimeFrequency - *it / 30000.0) * 8.0 / (SEGMENT_COUNT * SAMPLE_COUNT))) +
-						(Tierce[Low] + Mod / (Duration * SEGMENT_COUNT * SAMPLE_COUNT / AmplitudeCount) * (Tierce[Low + 1] - Tierce[Low])) *
-						sin(*it * atan(1.0) * ((TierceFrequency - *it / 40000.0) * 8.0 / (SEGMENT_COUNT * SAMPLE_COUNT))) +
-						(Hum[Low] + Mod / (Duration * SEGMENT_COUNT * SAMPLE_COUNT / AmplitudeCount) * (Hum[Low + 1] - Hum[Low])) *
-						sin(*it * atan(1.0) * ((HumFrequency - *it / 60000.0) * 8.0 / (SEGMENT_COUNT * SAMPLE_COUNT))) +
-						(Quint[Low] + Mod / (Duration * SEGMENT_COUNT * SAMPLE_COUNT / AmplitudeCount) * (Quint[Low + 1] - Quint[Low])) *
-						sin(*it * atan(1.0) * ((QuintFrequency - *it / 50000.0) * 8.0 / (SEGMENT_COUNT * SAMPLE_COUNT))) +
-						0);
-					++*it;
+					int Low = it->Pos / (Duration * SEGMENT_COUNT * SAMPLE_COUNT / AmplitudeCount);
+					double Mod = it->Pos % (Duration * SEGMENT_COUNT * SAMPLE_COUNT / AmplitudeCount);
+					for (int j = 0; j < 5; j++)
+					((short*)pBuffer)[i] += it->Volume *
+						(Amplitude[j][Low] + Mod / (Duration * SEGMENT_COUNT * SAMPLE_COUNT / AmplitudeCount) * (Amplitude[j][Low + 1] - Amplitude[j][Low])) *
+						std::sin(it->Pos * 8.0 * std::atan(1.0) * ((Frequency[it->Type][j] - it->Pos / 80000.0) / (SEGMENT_COUNT * SAMPLE_COUNT)));
+					++it->Pos;
 				}
-				if (*it == Duration * SEGMENT_COUNT * SAMPLE_COUNT)
+				if (it->Pos == Duration * SEGMENT_COUNT * SAMPLE_COUNT)
 				{
 					auto tmp = std::prev(it);
 					m_Dings.erase(it);
