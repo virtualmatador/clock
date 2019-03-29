@@ -46,12 +46,15 @@ Clock::Clock()
 	m_FontSource = SDL_RWFromConstMem(_binary_res_Font_ttf_start,
 		_binary_res_Font_ttf_end - _binary_res_Font_ttf_start);	
 	SDL_RWseek(m_FontSource, 0, RW_SEEK_SET);
-	m_FontTime = TTF_OpenFontRW(m_FontSource, false, m_iWidth / 4);
-	if (!m_FontTime)
+	m_FontBig = TTF_OpenFontRW(m_FontSource, false, m_iWidth / 4);
+	if (!m_FontBig)
 		throw "TTF_OpenFont";
 	SDL_RWseek(m_FontSource, 0, RW_SEEK_SET);
-	m_FontDate = TTF_OpenFontRW(m_FontSource, false, m_iWidth / 10);
-	if (!m_FontDate)
+	m_FontMedium = TTF_OpenFontRW(m_FontSource, false, m_iWidth / 8);
+	if (!m_FontMedium)
+		throw "TTF_OpenFont";
+	m_FontSmall = TTF_OpenFontRW(m_FontSource, false, m_iWidth / 16);
+	if (!m_FontSmall)
 		throw "TTF_OpenFont";
 	CreateAudio();
 }
@@ -59,8 +62,9 @@ Clock::Clock()
 Clock::~Clock()
 {
 	SDL_CloseAudioDevice(m_Audio);
-	TTF_CloseFont(m_FontTime);
-	TTF_CloseFont(m_FontDate);
+	TTF_CloseFont(m_FontBig);
+	TTF_CloseFont(m_FontMedium);
+	TTF_CloseFont(m_FontSmall);
 	TTF_Quit();
 	SDL_RWclose(m_FontSource);
 	SDL_DestroyRenderer(m_pRen);
@@ -195,22 +199,22 @@ void Clock::Redraw()
 			std::setfill('0') << std::setw(2) << m_pNow->tm_hour << ":" <<
 			std::setfill('0') << std::setw(2) << m_pNow->tm_min << ":" <<
 			std::setfill('0') << std::setw(2) << m_pNow->tm_sec;
-		DrawText(sTime.str(), m_FontTime, color, &iY);
+		DrawText(sTime.str(), m_FontBig, color, &iY);
 
 		std::stringstream sDay;
 		sDay << Clock::m_WeekDays[m_pNow->tm_wday];
-		DrawText(sDay.str(), m_FontDate, color, &iY);
+		DrawText(sDay.str(), m_FontSmall, color, &iY);
 
 		std::stringstream sDate;
 		sDate <<
 			m_pNow->tm_year + 1900 << "/" <<
 			std::setfill('0') << std::setw(2) << m_pNow->tm_mon + 1 << "/" <<
 			std::setfill('0') << std::setw(2) << m_pNow->tm_mday;
-		DrawText(sDate.str(), m_FontDate, color, &iY);
+		DrawText(sDate.str(), m_FontMedium, color, &iY);
 
 		std::stringstream sInfo;
 		sInfo << "[C]HIME:" << (m_Chime ? '\x7' : '\x8') << "  [A]LARM:" << (m_Alarm ? '\x7' : '\x8');
-		DrawText(sInfo.str(), m_FontDate, color, &iY);
+		DrawText(sInfo.str(), m_FontSmall, color, &iY);
 	}
 	SDL_RenderPresent(m_pRen);
 }

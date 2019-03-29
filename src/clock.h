@@ -21,8 +21,9 @@ private:
 	SDL_Renderer *m_pRen;
 	unsigned char m_Color;
 	SDL_RWops* m_FontSource;
-	TTF_Font* m_FontTime;
-	TTF_Font* m_FontDate;
+	TTF_Font* m_FontBig;
+	TTF_Font* m_FontMedium;
+	TTF_Font* m_FontSmall;
 	int m_iWidth;
 	std::chrono::system_clock::time_point m_frameTime;
 	std::tm* m_pNow;
