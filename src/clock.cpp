@@ -176,13 +176,18 @@ void Clock::Tick()
 	if (tPre != t)
 	{
 		m_pNow = std::localtime(&t);
-		if (m_pNow->tm_hour < 6 || m_pNow->tm_hour >= 18)
-			m_Tence = TENCE_MIN;
-		else
-			m_Tence = std::sin(8.0 * std::atan(1) * ((m_pNow->tm_hour - 9) * 60 + m_pNow->tm_min) / 12.0 / 60.0)
-				* (1.0 - TENCE_MIN) / 2.0 + (1.0 - TENCE_MIN) / 2.0 + TENCE_MIN;
+		static int MinPre = -1;
+		if (MinPre != m_pNow->tm_min)
+		{
+			if (m_pNow->tm_hour < 6 || m_pNow->tm_hour >= 18)
+				m_Tence = TENCE_MIN;
+			else
+				m_Tence = std::sin(8.0 * std::atan(1) * ((m_pNow->tm_hour - 9) * 60 + m_pNow->tm_min) / 12.0 / 60.0)
+					* (1.0 - TENCE_MIN) / 2.0 + (1.0 - TENCE_MIN) / 2.0 + TENCE_MIN;
+			CheckBell();
+			MinPre = m_pNow->tm_min;
+		}
 		Redraw();
-		CheckBell();
 		tPre = t;
 	}
 }
@@ -221,41 +226,36 @@ void Clock::Redraw()
 
 void Clock::CheckBell()
 {
-	static int MinPre = -1;
-	if (MinPre != m_pNow->tm_min)
+	bool Alarm = false;
+	if (m_Alarm)
 	{
-		bool Alarm = false;
-		if (m_Alarm)
+		std::ifstream Settings(".clock");
+		std::string Time;
+		while (std::getline(Settings, Time))
 		{
-			std::ifstream Settings(".clock");
-			std::string Time;
-			while (std::getline(Settings, Time))
+			std::istringstream iss(Time);
+			char colon;
+			int Hour, Minute;
+			if (iss >> Hour >> colon >> Minute)
 			{
-				std::istringstream iss(Time);
-				char colon;
-				int Hour, Minute;
-				if (iss >> Hour >> colon >> Minute)
+				if (colon == ':' && Hour == m_pNow->tm_hour && Minute == m_pNow->tm_min)
 				{
-					if (colon == ':' && Hour == m_pNow->tm_hour && Minute == m_pNow->tm_min)
-					{
-						Bell(16, 3, TENCE_MIN, 1.0);
-						Alarm = true;
-						break;
-					}
+					Bell(16, 3, TENCE_MIN, 1.0);
+					Alarm = true;
+					break;
 				}
 			}
 		}
-		if (!Alarm && m_Chime)
+	}
+	if (!Alarm && m_Chime)
+	{
+		if (m_pNow->tm_min == 0)
 		{
-			if (m_pNow->tm_min == 0)
-			{
-				int Count = m_pNow->tm_hour % 12;
-				if (Count == 0)
-					Count = 12;
-				Bell(Count, 2, m_Tence, m_Tence);
-			}
+			int Count = m_pNow->tm_hour % 12;
+			if (Count == 0)
+				Count = 12;
+			Bell(Count, 2, m_Tence, m_Tence);
 		}
-		MinPre = m_pNow->tm_min;
 	}
 }
 
