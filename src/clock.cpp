@@ -197,7 +197,12 @@ void Clock::Redraw()
 	int iY = 0;
 	if (SDL_RenderClear(m_pRen) == 0)
 	{
-		SDL_Color color{m_Color * m_Tence, m_Color * m_Tence, m_Color * m_Tence};
+		SDL_Color color
+		{
+			(unsigned char)(m_Color * m_Tence),
+			(unsigned char)(m_Color * m_Tence),
+			(unsigned char)(m_Color * m_Tence),
+		};
 
 		std::stringstream sTime;
 		sTime <<
@@ -208,7 +213,7 @@ void Clock::Redraw()
 
 		std::stringstream sDay;
 		sDay << Clock::m_WeekDays[m_pNow->tm_wday];
-		DrawText(sDay.str(), m_FontSmall, color, &iY);
+		DrawText(sDay.str(), m_FontMedium, color, &iY);
 
 		std::stringstream sDate;
 		sDate <<
@@ -218,7 +223,7 @@ void Clock::Redraw()
 		DrawText(sDate.str(), m_FontMedium, color, &iY);
 
 		std::stringstream sInfo;
-		sInfo << "[C]HIME:" << (m_Chime ? '\x7' : '\x8') << "  [A]LARM:" << (m_Alarm ? '\x7' : '\x8');
+		sInfo << "\x5:" << (m_Chime ? '\x7' : '\x8') << "  " << "\x6:" << (m_Alarm ? '\x7' : '\x8');
 		DrawText(sInfo.str(), m_FontSmall, color, &iY);
 	}
 	SDL_RenderPresent(m_pRen);
