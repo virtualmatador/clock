@@ -5,6 +5,7 @@
 #include <sstream>
 #include <iomanip>
 #include <cmath>
+#include <algorithm>
 
 const char* Clock::m_WeekDays[] =
 {
@@ -86,12 +87,12 @@ void Clock::CreateAudio()
 	SDL_AudioSpec Alarm;
 	SDL_zero(Alarm);
     Alarm.freq = SEGMENT_COUNT * SAMPLE_COUNT;
-    Alarm.format = AUDIO_S16SYS;
+    Alarm.format = AUDIO_F32SYS;
     Alarm.channels = 1;
     Alarm.samples = SAMPLE_COUNT;
     Alarm.callback = ::PlayDing;
     Alarm.userdata = this;
-	m_Audio = SDL_OpenAudioDevice(nullptr, 0, &Alarm, nullptr, SDL_AUDIO_ALLOW_ANY_CHANGE);
+	m_Audio = SDL_OpenAudioDevice(nullptr, 0, &Alarm, nullptr, 0);
  	if (!m_Audio)
 		throw "SDL_CreateAudio";
 }
@@ -252,7 +253,7 @@ void Clock::CheckBell()
 			int Count = m_pNow->tm_hour % 12;
 			if (Count == 0)
 				Count = 12;
-			Bell(Count, 2, m_Tence, m_Tence);
+			Bell(Count, 2, m_Tence / 1.5f, m_Tence / 1.5f);
 		}
 	}
 }
@@ -284,7 +285,7 @@ void Clock::Bell(int Count, int Interval, float VolumeMin, float VolumeMax)
 	if (m_Dings.empty())
 	{
 		for (int i = 0; i < Count; ++i)
-			m_Dings.push_back({i * Interval, VolumeMin + (VolumeMax - VolumeMin) * i / Count, m_pNow->tm_hour});
+			m_Dings.push_back({i * Interval, VolumeMin + (VolumeMax - VolumeMin) * (i + 1) / Count, m_pNow->tm_hour});
 	}
 	SDL_UnlockAudioDevice(m_Audio);
 	SDL_PauseAudioDevice(m_Audio, 0);
@@ -325,7 +326,7 @@ void Clock::ToggleChime()
 
 void Clock::RingBell()
 {
-	Bell(3, 3, m_Tence, m_Tence);
+	Bell(2, 2, m_Tence / 1.5f, m_Tence / 1.5f);
 }
 
 void Clock::PlayDing(unsigned char* pBuffer, int Length)
@@ -336,14 +337,12 @@ void Clock::PlayDing(unsigned char* pBuffer, int Length)
 		SDL_PauseAudioDevice(m_Audio, 1);
 	else
 	{
-		for (auto it = m_Dings.begin(); it != m_Dings.end(); ++it)
+		for (auto it = m_Dings.begin(); it != m_Dings.end();)
 		{
-			if (!it->play(reinterpret_cast<short*>(pBuffer)))
-			{
-				auto tmp = std::prev(it);
-				m_Dings.erase(it);
-				it = tmp;
-			}
+			if (it->play(reinterpret_cast<float*>(pBuffer)))
+				++it;
+			else
+				it = m_Dings.erase(it);
 		}
 	}
 	SDL_UnlockAudioDevice(m_Audio);

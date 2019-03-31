@@ -2,6 +2,17 @@
 
 #include <cmath>
 
+const float chime::cent[FREQUENCY_COUNT] =
+{
+    -24.0f,
+    -12.0f,
+    -9.0f,
+    -4.0f,
+    0.0f,
+    7.0f,
+    12.0f
+};
+
 const std::vector<std::pair<float, float>> chime::amplitude[FREQUENCY_COUNT] =  
 {
     {
@@ -21,8 +32,8 @@ const std::vector<std::pair<float, float>> chime::amplitude[FREQUENCY_COUNT] =
         {0.315f, 0.25f},
         {0.35f, 0.35f},
         {0.365f, 0.31f},
-        {0.4f, 0.35f},
-        {0.5f, 0.3f},
+        {0.4f, 0.3f},
+        {0.5f, 0.24f},
         {0.6f, 0.2f},
         {1.0f, 0.0f},
     },
@@ -53,19 +64,19 @@ const std::vector<std::pair<float, float>> chime::amplitude[FREQUENCY_COUNT] =
         {0.0f, 0.0f},
         {0.002f, 0.4f},
         {0.01f, 0.1f},
-        {0.05f, 0.3f},
-        {0.1f, 0.38f},
-        {0.12f, 0.45f},
-        {0.15f, 0.5f},
+        {0.05f, 0.2f},
+        {0.1f, 0.28f},
+        {0.12f, 0.35f},
+        {0.15f, 0.4f},
         {0.20f, 0.3f},
-        {0.22f, 0.5f},
+        {0.22f, 0.4f},
         {0.25f, 0.3f},
-        {0.3f, 0.4f},
-        {0.32f, 0.35f},
-        {0.4f, 0.3f},
-        {0.5f, 0.32f},
-        {0.59f, 0.15f},
-        {0.68f, 0.16f},
+        {0.3f, 0.35f},
+        {0.32f, 0.3f},
+        {0.4f, 0.2f},
+        {0.5f, 0.22f},
+        {0.59f, 0.12f},
+        {0.68f, 0.15f},
         {0.72f, 0.1f},
         {0.85f, 0.09f},
         {0.9f, 0.04f},
@@ -159,30 +170,30 @@ const std::vector<std::pair<float, float>> chime::amplitude[FREQUENCY_COUNT] =
 chime::chime(int seconds, float _volume, int hour)
 {
     pos = -seconds * SEGMENT_COUNT * SAMPLE_COUNT;
-    volume = std::pow(_volume, 0.5f);
-    float note = 400 + 40 * (12 - std::abs(hour - 12));
-    frequency[0] = note * std::pow(2.0f, -24.0f / 12.0f);
-    frequency[1] = note * std::pow(2.0f, -12.0f / 12.0f);
-    frequency[2] = note * std::pow(2.0f, -9.0f / 12.0f);
-    frequency[3] = note * std::pow(2.0f, -4.0f / 12.0f);
-    frequency[4] = note * std::pow(2.0f, 0.0f / 12.0f);
-    frequency[5] = note * std::pow(2.0f, 7.0f / 12.0f);
-    frequency[6] = note * std::pow(2.0f, 12.0f / 12.0f);
-    index[0] = 0;
-    index[1] = 0;
-    index[2] = 0;
-    index[3] = 0;
-    index[4] = 0;
-    index[5] = 0;
-    index[6] = 0;
-    index[7] = 0;
+    volume = std::pow(_volume, 0.75f) / 2.0f;
+    float note = 440 + 40 * (12 - std::abs(hour - 12));
+    for (int i = 0; i < FREQUENCY_COUNT; ++i)
+    {
+        frequency[i] = note * std::pow(2.0f, cent[i] / 12.0f);
+        progress[i] = 0;
+        set_step(i);
+    }
 }
 
 chime::~chime()
 {
 }
 
-bool chime::play(short* buffer)
+void chime::set_step(int index)
+{
+    base_amplitude[index] = volume * amplitude[index][progress[index]].second;
+    jump_amplitude[index] = volume * (amplitude[index][progress[index] + 1].second - amplitude[index][progress[index]].second) /
+        (amplitude[index][progress[index] + 1].first - amplitude[index][progress[index]].first) /
+        (DURATION * SEGMENT_COUNT * SAMPLE_COUNT);
+    pos_end[index] = amplitude[index][progress[index] + 1].first * (DURATION * SEGMENT_COUNT * SAMPLE_COUNT); 
+}
+
+bool chime::play(float* buffer)
 {
     if (pos < 0)
         pos += SAMPLE_COUNT;
@@ -190,15 +201,16 @@ bool chime::play(short* buffer)
     {
         for (int i = 0; i < SAMPLE_COUNT; ++i, ++pos)
         {
-            float time = float(pos) / (DURATION * SEGMENT_COUNT * SAMPLE_COUNT);
             for (int j = 0; j < FREQUENCY_COUNT; j++)
             {
-                if (time > amplitude[j][index[j] + 1].first)
-                    ++index[j];
-                buffer[i] += 16000.0f * volume *
-                    (amplitude[j][index[j]].second + (amplitude[j][index[j] + 1].second - amplitude[j][index[j]].second) *
-                    (time - amplitude[j][index[j]].first) / (amplitude[j][index[j] + 1].first - amplitude[j][index[j]].first)) *
-                    std::sin(pos * 8.0f * std::atan(1.0f) * frequency[j] / (SEGMENT_COUNT * SAMPLE_COUNT));
+                if (pos == pos_end[j])
+                {
+                    ++progress[j];
+                    set_step(j);
+                }
+                buffer[i] += base_amplitude[j] *
+                    std::sin(pos * 8.0 * std::atan(1.0) * frequency[j] / (SEGMENT_COUNT * SAMPLE_COUNT));
+                base_amplitude[j] += jump_amplitude[j];
             }
         }
         if (pos == DURATION * SEGMENT_COUNT * SAMPLE_COUNT)
