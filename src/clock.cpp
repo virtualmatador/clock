@@ -6,10 +6,6 @@
 #include <iomanip>
 #include <cmath>
 
-#define TENCE_MIN 0.2
-#define SAMPLE_COUNT 1500
-#define SEGMENT_COUNT 32
-
 const char* Clock::m_WeekDays[] =
 {
 	"SUNDAY",
@@ -30,7 +26,7 @@ Clock::Clock()
 	: m_pWnd{nullptr}
 	, m_pRen{nullptr}
 	, m_Color{255}
-	, m_iWidth{0}
+	, m_Width{0}
 	, m_frameTime{std::chrono::nanoseconds(0)}
 	, m_pNow{nullptr}
 	, m_Tence{TENCE_MIN}
@@ -46,14 +42,14 @@ Clock::Clock()
 	m_FontSource = SDL_RWFromConstMem(_binary_res_Font_ttf_start,
 		_binary_res_Font_ttf_end - _binary_res_Font_ttf_start);	
 	SDL_RWseek(m_FontSource, 0, RW_SEEK_SET);
-	m_FontBig = TTF_OpenFontRW(m_FontSource, false, m_iWidth / 4);
+	m_FontBig = TTF_OpenFontRW(m_FontSource, false, m_Width / 4);
 	if (!m_FontBig)
 		throw "TTF_OpenFont";
 	SDL_RWseek(m_FontSource, 0, RW_SEEK_SET);
-	m_FontMedium = TTF_OpenFontRW(m_FontSource, false, m_iWidth / 8);
+	m_FontMedium = TTF_OpenFontRW(m_FontSource, false, m_Width / 8);
 	if (!m_FontMedium)
 		throw "TTF_OpenFont";
-	m_FontSmall = TTF_OpenFontRW(m_FontSource, false, m_iWidth / 16);
+	m_FontSmall = TTF_OpenFontRW(m_FontSource, false, m_Width / 16);
 	if (!m_FontSmall)
 		throw "TTF_OpenFont";
 	CreateAudio();
@@ -79,7 +75,7 @@ void Clock::CreateWindow()
 		0, 0, SDL_WINDOW_SHOWN | SDL_WINDOW_FULLSCREEN_DESKTOP);
 	if (!m_pWnd)
 		throw "SDL_CreateWindow";
-	SDL_GetWindowSize(m_pWnd, &m_iWidth, nullptr);
+	SDL_GetWindowSize(m_pWnd, &m_Width, nullptr);
 	m_pRen = SDL_CreateRenderer(m_pWnd, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 	if (!m_pRen)
 		throw "SDL_CreateRenderer";
@@ -179,11 +175,8 @@ void Clock::Tick()
 		static int MinPre = -1;
 		if (MinPre != m_pNow->tm_min)
 		{
-			if (m_pNow->tm_hour < 6 || m_pNow->tm_hour >= 18)
-				m_Tence = TENCE_MIN;
-			else
-				m_Tence = std::sin(8.0 * std::atan(1) * ((m_pNow->tm_hour - 9) * 60 + m_pNow->tm_min) / 12.0 / 60.0)
-					* (1.0 - TENCE_MIN) / 2.0 + (1.0 - TENCE_MIN) / 2.0 + TENCE_MIN;
+			m_Tence = std::max(0, 6 * 60 - std::abs(m_pNow->tm_hour * 60 + m_pNow->tm_min - 12 * 60))
+				/ 360.0f * (1.0f - TENCE_MIN) + TENCE_MIN;
 			CheckBell();
 			MinPre = m_pNow->tm_min;
 		}
@@ -245,7 +238,7 @@ void Clock::CheckBell()
 			{
 				if (colon == ':' && Hour == m_pNow->tm_hour && Minute == m_pNow->tm_min)
 				{
-					Bell(16, 3, TENCE_MIN, 1.0);
+					Bell(16, 3, TENCE_MIN, 1.0f);
 					Alarm = true;
 					break;
 				}
@@ -275,7 +268,7 @@ void Clock::DrawText(const std::string & sText, TTF_Font* const pFont, const SDL
 			int w, h;
 			if (SDL_QueryTexture(texture, nullptr, nullptr, &w, &h) == 0)
 			{
-				SDL_Rect dest{(m_iWidth - w) / 2, *piY, w, h};
+				SDL_Rect dest{(m_Width - w) / 2, *piY, w, h};
 				SDL_RenderCopy(m_pRen, texture, nullptr, &dest);
 				SDL_DestroyTexture(texture);
 				SDL_FreeSurface(surface);
@@ -285,14 +278,13 @@ void Clock::DrawText(const std::string & sText, TTF_Font* const pFont, const SDL
 	}
 }
 
-void Clock::Bell(int Count, int Interval, double VolumeMin, double VolumeMax)
+void Clock::Bell(int Count, int Interval, float VolumeMin, float VolumeMax)
 {
-	int Type = 12 - std::abs(m_pNow->tm_hour - 12);
 	SDL_LockAudioDevice(m_Audio);
 	if (m_Dings.empty())
 	{
 		for (int i = 0; i < Count; ++i)
-			m_Dings.push_back({-i * Interval * SEGMENT_COUNT * SAMPLE_COUNT, VolumeMin + (VolumeMax - VolumeMin) * i / Count, Type});
+			m_Dings.push_back({i * Interval, VolumeMin + (VolumeMax - VolumeMin) * i / Count, m_pNow->tm_hour});
 	}
 	SDL_UnlockAudioDevice(m_Audio);
 	SDL_PauseAudioDevice(m_Audio, 0);
@@ -315,7 +307,7 @@ void Clock::ColorDown()
 void Clock::Silent()
 {
 	SDL_LockAudioDevice(m_Audio);
-	m_Dings.remove_if([](auto & Chime){return Chime.Pos <= 0;});
+	m_Dings.remove_if([](auto & chime){return chime.waiting();});
 	SDL_UnlockAudioDevice(m_Audio);
 }
 
@@ -333,38 +325,11 @@ void Clock::ToggleChime()
 
 void Clock::RingBell()
 {
-	Bell(2, 3, m_Tence, m_Tence);
+	Bell(3, 3, m_Tence, m_Tence);
 }
 
 void Clock::PlayDing(unsigned char* pBuffer, int Length)
 {
-	static const double Frequency[13][5] =
-	{
-		{0440.00, 0220.00, 0261.63, 0110.00, 0349.23},
-		{0493.88, 0246.94, 0293.66, 0123.47, 0392.00},
-		{0554.37, 0277.88, 0329.63, 0138.59, 0440.00},
-		{0622.25, 0311.13, 0369.99, 0155.56, 0493.88},
-		{0698.46, 0349.23, 0415.30, 0174.61, 0554.37},
-		{0783.99, 0392.00, 0466.16, 0196.00, 0622.25},
-		{0880.00, 0440.00, 0523.25, 0220.00, 0698.46},
-		{0987.77, 0493.88, 0587.33, 0246.94, 0783.99},
-		{1108.73, 0554.37, 0659.25, 0277.18, 0880.00},
-		{1244.51, 0622.25, 0739.99, 0311.13, 0987.77},
-		{1396.91, 0698.46, 0830.61, 0349.23, 1108.73},
-		{1567.98, 0783.99, 0932.33, 0392.00, 1244.51},
-		{1760.00, 0880.00, 1046.50, 0440.00, 1396.91},
-	};
-	static const int Amplitude[5][81] =
-	{
-		{0,7500,9800,8000,4000,4200,3800,3400,3600,3200,2800,2500,2200,1900,1700,1500,1400,1300,1200,1100,1000,900,800,700,600,500,400,300,200,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,50,20,10,5,0,0,0},
-		{0,3400,5000,3000,4000,4500,5000,5300,5500,5400,5300,5400,5500,5600,5700,5800,5600,5400,5000,4500,4200,4500,5000,4000,3500,3600,3700,3600,3500,3400,3200,3300,3000,3100,2800,2900,2600,2700,2400,2500,2200,2300,2000,2100,1800,1900,1600,1700,1400,1500,1200,1300,1000,1100,1000,1000,900,900,800,800,700,700,600,600,500,500,400,400,300,300,200,200,100,100,50,20,10,5,0,0,0},
-		{0,1700,3000,1500,1600,2200,2300,2500,2700,2800,2900,3000,3100,3000,2900,2800,2700,2600,2700,2900,3000,3200,3400,3300,3100,3000,2800,2700,2500,2300,2400,2500,3000,3200,3300,3600,3500,3200,3000,2800,2600,2500,2700,2400,2500,2200,2300,2000,2100,1800,1900,1600,1700,1400,1500,1200,1300,1000,1000,900,900,800,800,700,700,600,600,500,500,400,400,300,200,100,50,20,10,5,0,0,0},
-		{0,800,900,1000,1000,1100,1100,1200,1200,1300,1300,1400,1400,1500,1500,1600,1600,1700,1700,1800,1800,1900,1900,2000,2000,2100,2100,2200,2200,2300,2300,2400,2400,2500,2500,2400,2400,2500,2500,2400,2400,2400,2300,2300,2300,2200,2200,2200,2100,2100,2100,2000,2000,2000,1960,1940,1900,1870,1830,1800,1780,1750,1700,1650,1600,1550,1500,1400,1200,1000,800,500,300,200,150,100,50,20,10,5,0},
-		{0,500,4000,1800,1600,1400,1300,1200,1100,1000,900,800,700,600,500,800,1000,800,700,600,900,700,900,800,700,600,500,400,600,800,700,600,500,400,300,200,100,200,100,200,100,200,100,200,100,200,100,200,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,50,20,10,5,0,0,0},
-	};
-	static const int AmplitudeCount = sizeof(*Amplitude) / sizeof(**Amplitude) - 1;
-	static const int Duration = 4;
-
 	SDL_memset(pBuffer, 0, Length);
 	SDL_LockAudioDevice(m_Audio);
 	if (m_Dings.empty())
@@ -373,26 +338,11 @@ void Clock::PlayDing(unsigned char* pBuffer, int Length)
 	{
 		for (auto it = m_Dings.begin(); it != m_Dings.end(); ++it)
 		{
-			if (it->Pos < 0)
-				it->Pos += SAMPLE_COUNT;
-			else
+			if (!it->play(reinterpret_cast<short*>(pBuffer)))
 			{
-				for (int i = 0; i < SAMPLE_COUNT; ++i)
-				{
-					int Low = it->Pos / (Duration * SEGMENT_COUNT * SAMPLE_COUNT / AmplitudeCount);
-					double Mod = it->Pos % (Duration * SEGMENT_COUNT * SAMPLE_COUNT / AmplitudeCount);
-					for (int j = 0; j < 5; j++)
-					((short*)pBuffer)[i] += it->Volume *
-						(Amplitude[j][Low] + Mod / (Duration * SEGMENT_COUNT * SAMPLE_COUNT / AmplitudeCount) * (Amplitude[j][Low + 1] - Amplitude[j][Low])) *
-						std::sin(it->Pos * 8.0 * std::atan(1.0) * ((Frequency[it->Type][j] - it->Pos / 80000.0) / (SEGMENT_COUNT * SAMPLE_COUNT)));
-					++it->Pos;
-				}
-				if (it->Pos == Duration * SEGMENT_COUNT * SAMPLE_COUNT)
-				{
-					auto tmp = std::prev(it);
-					m_Dings.erase(it);
-					it = tmp;
-				}
+				auto tmp = std::prev(it);
+				m_Dings.erase(it);
+				it = tmp;
 			}
 		}
 	}

@@ -1,18 +1,16 @@
+#include "chime.h"
+
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
+
 #include <chrono>
 #include <string>
 #include <list>
 
+#define TENCE_MIN 0.25f
+
 extern const unsigned char _binary_res_Font_ttf_end[];
 extern const unsigned char _binary_res_Font_ttf_start[];
-
-struct CHIME
-{
-	int Pos;
-	double Volume;
-	int Type;
-};
 
 class Clock
 {
@@ -24,14 +22,14 @@ private:
 	TTF_Font* m_FontBig;
 	TTF_Font* m_FontMedium;
 	TTF_Font* m_FontSmall;
-	int m_iWidth;
+	int m_Width;
 	std::chrono::system_clock::time_point m_frameTime;
 	std::tm* m_pNow;
-	double m_Tence;
+	float m_Tence;
 	bool m_Chime;
 	bool m_Alarm;
 	SDL_AudioDeviceID m_Audio;
-	std::list<CHIME> m_Dings;
+	std::list<chime> m_Dings;
 
 private:
 	static const char* m_WeekDays[];
@@ -50,7 +48,7 @@ private:
 	void Redraw();
 	void CheckBell();
 	void DrawText(const std::string & sText, TTF_Font* const pFont, const SDL_Color & color, int * iY);
-	void Bell(int Count, int Interval, double VolumeMin, double VolumeMax);
+	void Bell(int Count, int Interval, float VolumeMin, float VolumeMax);
 	void ColorUp();
 	void ColorDown();
 	void Silent();
