@@ -167,11 +167,11 @@ const std::vector<std::pair<float, float>> chime::amplitude[FREQUENCY_COUNT] =
     },
 };
 
-chime::chime(int seconds, float _volume, int hour)
+chime::chime(float interval, float _volume, int pitch)
 {
-    pos = -seconds * SEGMENT_COUNT * SAMPLE_COUNT;
-    volume = std::pow(_volume, 0.75f) / 2.0f;
-    float note = 440 + 40 * (12 - std::abs(hour - 12));
+    pos = -int(interval * SEGMENT_COUNT) * SAMPLE_COUNT;
+    volume = _volume / 3.0f;
+    float note = 440 + 40 * pitch;
     for (int i = 0; i < FREQUENCY_COUNT; ++i)
     {
         frequency[i] = note * std::pow(2.0f, cent[i] / 12.0f);

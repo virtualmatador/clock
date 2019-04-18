@@ -18,7 +18,7 @@ private:
     static const float cent[FREQUENCY_COUNT];
     static const std::vector<std::pair<float, float>> amplitude[FREQUENCY_COUNT];
 public:
-    chime(int seconds, float _volume, int hour);
+    chime(float interval, float _volume, int pitch);
     ~chime();
     void set_step(int index);
     bool play(float* buffer);

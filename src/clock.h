@@ -14,6 +14,14 @@ extern const unsigned char _binary_res_Font_ttf_start[];
 
 class Clock
 {
+
+	struct CHIME_INFO
+	{
+		float delay;
+		float volume;
+		int pitch;
+	};
+
 private:
 	SDL_Window* m_pWnd;
 	SDL_Renderer *m_pRen;
@@ -48,7 +56,8 @@ private:
 	void Redraw();
 	void CheckBell();
 	void DrawText(const std::string & sText, TTF_Font* const pFont, const SDL_Color & color, int * iY);
-	void Bell(int Count, int Interval, float VolumeMin, float VolumeMax);
+	int get_pitch();
+	void Bell(std::list<CHIME_INFO> chimes);
 	void ColorUp();
 	void ColorDown();
 	void Silent();

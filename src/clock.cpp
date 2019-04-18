@@ -239,7 +239,14 @@ void Clock::CheckBell()
 			{
 				if (colon == ':' && Hour == m_pNow->tm_hour && Minute == m_pNow->tm_min)
 				{
-					Bell(16, 3, TENCE_MIN, 1.0f);
+					std::list<CHIME_INFO> chimes;
+					for (int i = 0; i < 16; ++i)
+					{
+						chimes.push_back({i * 3.0f + 0.0f, m_Tence * (i + 3) / 20.0f, i + 2});
+						chimes.push_back({i * 3.0f + 0.5f, m_Tence * (i + 2) / 20.0f, i + 1});
+						chimes.push_back({i * 3.0f + 1.0f, m_Tence * (i + 1) / 20.0f, i + 0});
+					}
+					Bell(chimes);
 					Alarm = true;
 					break;
 				}
@@ -253,7 +260,10 @@ void Clock::CheckBell()
 			int Count = m_pNow->tm_hour % 12;
 			if (Count == 0)
 				Count = 12;
-			Bell(Count, 2, m_Tence / 1.5f, m_Tence / 1.5f);
+			std::list<CHIME_INFO> chimes;
+			for (int i = 0; i < Count; ++i)
+				chimes.push_back({i * 1.5f, m_Tence / 1.5f, get_pitch()});
+			Bell(chimes);
 		}
 	}
 }
@@ -279,13 +289,18 @@ void Clock::DrawText(const std::string & sText, TTF_Font* const pFont, const SDL
 	}
 }
 
-void Clock::Bell(int Count, int Interval, float VolumeMin, float VolumeMax)
+int Clock::get_pitch()
+{
+	return (12 - std::abs(m_pNow->tm_hour - 12));
+}
+
+void Clock::Bell(std::list<CHIME_INFO> chimes)
 {
 	SDL_LockAudioDevice(m_Audio);
 	if (m_Dings.empty())
 	{
-		for (int i = 0; i < Count; ++i)
-			m_Dings.push_back({i * Interval, VolumeMin + (VolumeMax - VolumeMin) * (i + 1) / Count, m_pNow->tm_hour});
+		for (auto & chime : chimes)
+			m_Dings.push_back({chime.delay, chime.volume, chime.pitch});
 	}
 	SDL_UnlockAudioDevice(m_Audio);
 	SDL_PauseAudioDevice(m_Audio, 0);
@@ -326,7 +341,10 @@ void Clock::ToggleChime()
 
 void Clock::RingBell()
 {
-	Bell(2, 2, m_Tence / 1.5f, m_Tence / 1.5f);
+	std::list<CHIME_INFO> chimes;
+	for (int i = 0; i < 2; ++i)
+		chimes.push_back({i * 2.0f, m_Tence / 1.5f, get_pitch()});
+	Bell(chimes);
 }
 
 void Clock::PlayDing(unsigned char* pBuffer, int Length)
