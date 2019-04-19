@@ -31,6 +31,7 @@ Clock::Clock()
 	, m_frameTime{std::chrono::nanoseconds(0)}
 	, m_pNow{nullptr}
 	, m_Tence{TENCE_MIN}
+	, m_Pitch{0}
 	, m_Chime{false}
 	, m_Alarm{false}
 	, m_Audio{0}
@@ -178,6 +179,7 @@ void Clock::Tick()
 		{
 			m_Tence = std::max(0, 6 * 60 - std::abs(m_pNow->tm_hour * 60 + m_pNow->tm_min - 12 * 60))
 				/ 360.0f * (1.0f - TENCE_MIN) + TENCE_MIN;
+			m_Pitch = 12 - std::abs(m_pNow->tm_hour - 12);
 			CheckBell();
 			MinPre = m_pNow->tm_min;
 		}
@@ -223,6 +225,37 @@ void Clock::Redraw()
 	SDL_RenderPresent(m_pRen);
 }
 
+void Clock::bell_alarm()
+{
+	std::list<CHIME_INFO> chimes;
+	for (int i = 0; i < 12; ++i)
+	{
+		chimes.push_back({i * 3.0f + 0.0f, m_Tence * (i + 3) / 15.0f, i + 2});
+		chimes.push_back({i * 3.0f + 0.5f, m_Tence * (i + 2) / 15.0f, i + 1});
+		chimes.push_back({i * 3.0f + 1.0f, m_Tence * (i + 1) / 15.0f, i + 0});
+	}
+	Bell(chimes);
+}
+
+void Clock::bell_hour()
+{
+	int count = m_pNow->tm_hour % 12;
+	if (count == 0)
+		count = 12;
+	std::list<CHIME_INFO> chimes;
+	for (int i = 0; i < count; ++i)
+		chimes.push_back({i * 1.5f, m_Tence / 1.5f, m_Pitch});
+	Bell(chimes);
+}
+
+void Clock::bell_test()
+{
+	std::list<CHIME_INFO> chimes;
+	for (int i = 0; i < 2; ++i)
+		chimes.push_back({i * 2.0f, m_Tence / 1.5f, m_Pitch});
+	Bell(chimes);
+}
+
 void Clock::CheckBell()
 {
 	bool Alarm = false;
@@ -239,14 +272,7 @@ void Clock::CheckBell()
 			{
 				if (colon == ':' && Hour == m_pNow->tm_hour && Minute == m_pNow->tm_min)
 				{
-					std::list<CHIME_INFO> chimes;
-					for (int i = 0; i < 16; ++i)
-					{
-						chimes.push_back({i * 3.0f + 0.0f, m_Tence * (i + 3) / 20.0f, i + 2});
-						chimes.push_back({i * 3.0f + 0.5f, m_Tence * (i + 2) / 20.0f, i + 1});
-						chimes.push_back({i * 3.0f + 1.0f, m_Tence * (i + 1) / 20.0f, i + 0});
-					}
-					Bell(chimes);
+					bell_alarm();
 					Alarm = true;
 					break;
 				}
@@ -256,15 +282,7 @@ void Clock::CheckBell()
 	if (!Alarm && m_Chime)
 	{
 		if (m_pNow->tm_min == 0)
-		{
-			int Count = m_pNow->tm_hour % 12;
-			if (Count == 0)
-				Count = 12;
-			std::list<CHIME_INFO> chimes;
-			for (int i = 0; i < Count; ++i)
-				chimes.push_back({i * 1.5f, m_Tence / 1.5f, get_pitch()});
-			Bell(chimes);
-		}
+			bell_hour();
 	}
 }
 
@@ -287,11 +305,6 @@ void Clock::DrawText(const std::string & sText, TTF_Font* const pFont, const SDL
 			}
 		}
 	}
-}
-
-int Clock::get_pitch()
-{
-	return (12 - std::abs(m_pNow->tm_hour - 12));
 }
 
 void Clock::Bell(std::list<CHIME_INFO> chimes)
@@ -341,10 +354,7 @@ void Clock::ToggleChime()
 
 void Clock::RingBell()
 {
-	std::list<CHIME_INFO> chimes;
-	for (int i = 0; i < 2; ++i)
-		chimes.push_back({i * 2.0f, m_Tence / 1.5f, get_pitch()});
-	Bell(chimes);
+	bell_test();
 }
 
 void Clock::PlayDing(unsigned char* pBuffer, int Length)
@@ -365,3 +375,59 @@ void Clock::PlayDing(unsigned char* pBuffer, int Length)
 	}
 	SDL_UnlockAudioDevice(m_Audio);
 }
+
+/*
+void Clock::test()
+{
+	float buffer[SAMPLE_COUNT];
+	float s_max = 0;
+	m_pNow = new tm;
+	for (int i = 0; i < 24; ++i)
+	{
+		for (int j = 0; j < 60; ++j)
+		{
+			m_pNow->tm_hour = i;
+			m_pNow->tm_min = j;
+			m_Tence = std::max(0, 6 * 60 - std::abs(m_pNow->tm_hour * 60 + m_pNow->tm_min - 12 * 60))
+				/ 360.0f * (1.0f - TENCE_MIN) + TENCE_MIN;
+			m_Pitch = 12 - std::abs(m_pNow->tm_hour - 12);
+			bell_test();
+			while (m_Dings.size())
+			{
+				PlayDing((unsigned char*)buffer, sizeof(buffer));
+				for (auto & f : buffer)
+				{
+					s_max = std::max(s_max, f);
+					s_max = std::max(s_max, -f);
+				}
+			}
+			bell_alarm();
+			while (m_Dings.size())
+			{
+				PlayDing((unsigned char*)buffer, sizeof(buffer));
+				for (auto & f : buffer)
+				{
+					s_max = std::max(s_max, f);
+					s_max = std::max(s_max, -f);
+				}
+			}
+			if (m_pNow->tm_min == 0)
+			{
+				bell_hour();
+				while (m_Dings.size())
+				{
+					PlayDing((unsigned char*)buffer, sizeof(buffer));
+					for (auto & f : buffer)
+					{
+						s_max = std::max(s_max, f);
+						s_max = std::max(s_max, -f);
+					}
+				}
+			}
+		}
+	}
+	delete m_pNow;
+	if (s_max >= 1.0)
+		throw "Max hit";
+}
+*/

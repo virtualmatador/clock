@@ -34,6 +34,7 @@ private:
 	std::chrono::system_clock::time_point m_frameTime;
 	std::tm* m_pNow;
 	float m_Tence;
+	int m_Pitch;
 	bool m_Chime;
 	bool m_Alarm;
 	SDL_AudioDeviceID m_Audio;
@@ -54,9 +55,11 @@ private:
 	int HandleEvent(SDL_Event* pEvent);
 	void Tick();
 	void Redraw();
+	void bell_alarm();
+	void bell_hour();
+	void bell_test();
 	void CheckBell();
 	void DrawText(const std::string & sText, TTF_Font* const pFont, const SDL_Color & color, int * iY);
-	int get_pitch();
 	void Bell(std::list<CHIME_INFO> chimes);
 	void ColorUp();
 	void ColorDown();
