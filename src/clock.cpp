@@ -367,7 +367,7 @@ void Clock::PlayDing(unsigned char* pBuffer, int Length)
 	{
 		for (auto it = m_Dings.begin(); it != m_Dings.end();)
 		{
-			if (it->play(reinterpret_cast<float*>(pBuffer)))
+			if (it->play(reinterpret_cast<float*>(pBuffer), Length / sizeof(float)))
 				++it;
 			else
 				it = m_Dings.erase(it);

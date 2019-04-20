@@ -193,13 +193,13 @@ void chime::set_step(int index)
     pos_end[index] = amplitude[index][progress[index] + 1].first * (DURATION * SEGMENT_COUNT * SAMPLE_COUNT); 
 }
 
-bool chime::play(float* buffer)
+bool chime::play(float* buffer, int count)
 {
     if (pos < 0)
-        pos += SAMPLE_COUNT;
+        pos += count;
     else
     {
-        for (int i = 0; i < SAMPLE_COUNT; ++i, ++pos)
+        for (int i = 0; i < count; ++i, ++pos)
         {
             for (int j = 0; j < FREQUENCY_COUNT; j++)
             {

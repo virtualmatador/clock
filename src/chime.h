@@ -21,6 +21,6 @@ public:
     chime(float interval, float _volume, int pitch);
     ~chime();
     void set_step(int index);
-    bool play(float* buffer);
+    bool play(float* buffer, int count);
     bool waiting();
 };
