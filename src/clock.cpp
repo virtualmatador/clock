@@ -1,5 +1,6 @@
 #include "clock.h"
 
+#include <iostream>
 #include <fstream>
 #include <ctime>
 #include <sstream>
@@ -423,10 +424,11 @@ void Clock::test()
 					}
 				}
 			}
+			if (s_max >= 1.0)
+				throw "Max hit";
+			std::cout << i << ":" << j << " " << s_max << std::endl;
 		}
 	}
 	delete m_pNow;
-	if (s_max >= 1.0)
-		throw "Max hit";
 }
 */
