@@ -8,19 +8,11 @@
 class chime
 {
 private:
-	int pos;
-    int pos_end[FREQUENCY_COUNT];
-    int progress[FREQUENCY_COUNT];
-    float base_amplitude[FREQUENCY_COUNT];
-    float jump_amplitude[FREQUENCY_COUNT];
-	float volume;
-	float frequency[FREQUENCY_COUNT];
-    static const float cent[FREQUENCY_COUNT];
-    static const std::vector<std::pair<float, float>> amplitude[FREQUENCY_COUNT];
+    std::vector<float> wave_;
+    static const float cent_[FREQUENCY_COUNT];
+    static const std::vector<std::pair<float, float>> amplitude_[FREQUENCY_COUNT];
 public:
-    chime(float interval, float _volume, int pitch);
+    chime(int pitch);
     ~chime();
-    void set_step(int index);
-    bool play(float* buffer, int count);
-    bool waiting();
+    bool play(float volume, int & pos, float* buffer, int count);
 };

@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-const float chime::cent[FREQUENCY_COUNT] =
+const float chime::cent_[FREQUENCY_COUNT] =
 {
     -24.0f,
     -12.0f,
@@ -13,7 +13,7 @@ const float chime::cent[FREQUENCY_COUNT] =
     12.0f
 };
 
-const std::vector<std::pair<float, float>> chime::amplitude[FREQUENCY_COUNT] =  
+const std::vector<std::pair<float, float>> chime::amplitude_[FREQUENCY_COUNT] =  
 {
     {
         {0.0f, 0.0f},
@@ -167,16 +167,38 @@ const std::vector<std::pair<float, float>> chime::amplitude[FREQUENCY_COUNT] =
     },
 };
 
-chime::chime(float interval, float _volume, int pitch)
+chime::chime(int pitch)
 {
-    pos = -int(interval * SEGMENT_COUNT) * SAMPLE_COUNT;
-    volume = _volume / 2.0f;
     float note = 440 + 40 * pitch;
+    int pos_end[FREQUENCY_COUNT];
+    int progress[FREQUENCY_COUNT];
+    float base[FREQUENCY_COUNT];
+    float jump[FREQUENCY_COUNT];
+	float frequency[FREQUENCY_COUNT];
     for (int i = 0; i < FREQUENCY_COUNT; ++i)
     {
-        frequency[i] = note * std::pow(2.0f, cent[i] / 12.0f);
+        frequency[i] = note * std::pow(2.0f, cent_[i] / 12.0f);
         progress[i] = 0;
-        set_step(i);
+        pos_end[i] = 0;
+    }
+    wave_.resize(DURATION * SEGMENT_COUNT * SAMPLE_COUNT);
+    for (int pos = 0; pos < DURATION * SEGMENT_COUNT * SAMPLE_COUNT; ++pos)
+    {
+        wave_[pos] = 0;
+        for (int i = 0; i < FREQUENCY_COUNT; ++i)
+        {
+            if (pos == pos_end[i])
+            {
+                base[i] = amplitude_[i][progress[i]].second;
+                jump[i] = (amplitude_[i][progress[i] + 1].second - amplitude_[i][progress[i]].second) /
+                    (amplitude_[i][progress[i] + 1].first - amplitude_[i][progress[i]].first) /
+                    (DURATION * SEGMENT_COUNT * SAMPLE_COUNT);
+                pos_end[i] = amplitude_[i][progress[i] + 1].first * (DURATION * SEGMENT_COUNT * SAMPLE_COUNT); 
+                ++progress[i];
+            }
+            wave_[pos] += base[i] * std::sin(8.0f * std::atan(1.0f) * frequency[i] * pos / (SEGMENT_COUNT * SAMPLE_COUNT));
+            base[i] += jump[i];
+        }
     }
 }
 
@@ -184,42 +206,20 @@ chime::~chime()
 {
 }
 
-void chime::set_step(int index)
-{
-    base_amplitude[index] = volume * amplitude[index][progress[index]].second;
-    jump_amplitude[index] = volume * (amplitude[index][progress[index] + 1].second - amplitude[index][progress[index]].second) /
-        (amplitude[index][progress[index] + 1].first - amplitude[index][progress[index]].first) /
-        (DURATION * SEGMENT_COUNT * SAMPLE_COUNT);
-    pos_end[index] = amplitude[index][progress[index] + 1].first * (DURATION * SEGMENT_COUNT * SAMPLE_COUNT); 
-}
-
-bool chime::play(float* buffer, int count)
+bool chime::play(float volume, int & pos, float* buffer, int count)
 {
     if (pos < 0)
         pos += count;
     else
     {
-        const float fc = 8.0f * std::atan(1.0f) / (SEGMENT_COUNT * SAMPLE_COUNT);
-        for (int i = 0; i < count; ++i, ++pos)
+        int done = pos;
+        while (pos < done + count)
         {
-            for (int j = 0; j < FREQUENCY_COUNT; ++j)
-            {
-                if (pos == pos_end[j])
-                {
-                    ++progress[j];
-                    set_step(j);
-                }
-                buffer[i] += base_amplitude[j] * std::sin(pos * frequency[j] * fc);
-                base_amplitude[j] += jump_amplitude[j];
-            }
+            buffer[pos - done] += volume * wave_[pos];
+            ++pos;
         }
         if (pos == DURATION * SEGMENT_COUNT * SAMPLE_COUNT)
             return false;
     }
     return true;
-}
-
-bool chime::waiting()
-{
-    return pos < 0;
 }

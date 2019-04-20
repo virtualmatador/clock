@@ -36,6 +36,7 @@ Clock::Clock()
 	, m_Chime{false}
 	, m_Alarm{false}
 	, m_Audio{0}
+	, chimes_{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}
 {
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
 		throw "SDL_INIT";
@@ -228,13 +229,27 @@ void Clock::Redraw()
 
 void Clock::bell_alarm()
 {
-	std::list<CHIME_INFO> chimes;
-	for (int i = 0; i < 12; ++i)
+	SDL_LockAudioDevice(m_Audio);
+	if (strikes_.empty())
 	{
-		chimes.push_back({i * 4.0f + 0.0f, m_Tence * (i + 3) / 15.0f, i + 1});
-		chimes.push_back({i * 4.0f + 1.0f, m_Tence * (i + 2) / 15.0f, i + 0});
+		for (int i = 0; i < 13; ++i)
+		{
+			strikes_.push_back(
+				{
+					-int((i * 4.0f + 0.0f) * SEGMENT_COUNT) * SAMPLE_COUNT,
+					m_Tence * (i + 1) / 13.0f * 1.0f,
+					i
+				});
+			strikes_.push_back(
+				{
+					-int((i * 4.0f + 1.0f) * SEGMENT_COUNT) * SAMPLE_COUNT,
+					m_Tence * (i + 1) / 13.0f * 0.5f,
+					i
+				});
+		}
 	}
-	Bell(chimes);
+	SDL_UnlockAudioDevice(m_Audio);
+	SDL_PauseAudioDevice(m_Audio, 0);
 }
 
 void Clock::bell_hour()
@@ -242,18 +257,40 @@ void Clock::bell_hour()
 	int count = m_pNow->tm_hour % 12;
 	if (count == 0)
 		count = 12;
-	std::list<CHIME_INFO> chimes;
-	for (int i = 0; i < count; ++i)
-		chimes.push_back({i * 1.5f, m_Tence / 1.5f, m_Pitch});
-	Bell(chimes);
+	SDL_LockAudioDevice(m_Audio);
+	if (strikes_.empty())
+	{
+		for (int i = 0; i < count; ++i)
+		{
+			strikes_.push_back(
+				{
+					-int((i * 1.5f + 0.0f) * SEGMENT_COUNT) * SAMPLE_COUNT,
+					m_Tence * 0.75f,
+					m_Pitch
+				});
+		}
+	}
+	SDL_UnlockAudioDevice(m_Audio);
+	SDL_PauseAudioDevice(m_Audio, 0);
 }
 
 void Clock::bell_test()
 {
-	std::list<CHIME_INFO> chimes;
-	for (int i = 0; i < 2; ++i)
-		chimes.push_back({i * 2.0f, m_Tence / 1.5f, m_Pitch});
-	Bell(chimes);
+	SDL_LockAudioDevice(m_Audio);
+	if (strikes_.empty())
+	{
+		for (int i = 0; i < 2; ++i)
+		{
+			strikes_.push_back(
+				{
+					-int((i * 2.0f + 0.0f) * SEGMENT_COUNT) * SAMPLE_COUNT,
+					m_Tence * 0.75f,
+					m_Pitch
+				});
+		}
+	}
+	SDL_UnlockAudioDevice(m_Audio);
+	SDL_PauseAudioDevice(m_Audio, 0);
 }
 
 void Clock::CheckBell()
@@ -307,18 +344,6 @@ void Clock::DrawText(const std::string & sText, TTF_Font* const pFont, const SDL
 	}
 }
 
-void Clock::Bell(std::list<CHIME_INFO> chimes)
-{
-	SDL_LockAudioDevice(m_Audio);
-	if (m_Dings.empty())
-	{
-		for (auto & chime : chimes)
-			m_Dings.push_back({chime.delay, chime.volume, chime.pitch});
-	}
-	SDL_UnlockAudioDevice(m_Audio);
-	SDL_PauseAudioDevice(m_Audio, 0);
-}
-
 void Clock::ColorUp()
 {
 	if (m_Color < 255)
@@ -336,7 +361,7 @@ void Clock::ColorDown()
 void Clock::Silent()
 {
 	SDL_LockAudioDevice(m_Audio);
-	m_Dings.remove_if([](auto & chime){return chime.waiting();});
+	strikes_.remove_if([](auto & strike){return strike.pos <= 0;});
 	SDL_UnlockAudioDevice(m_Audio);
 }
 
@@ -361,16 +386,16 @@ void Clock::PlayDing(unsigned char* pBuffer, int Length)
 {
 	SDL_memset(pBuffer, 0, Length);
 	SDL_LockAudioDevice(m_Audio);
-	if (m_Dings.empty())
+	if (strikes_.empty())
 		SDL_PauseAudioDevice(m_Audio, 1);
 	else
 	{
-		for (auto it = m_Dings.begin(); it != m_Dings.end();)
+		for (auto it = strikes_.begin(); it != strikes_.end();)
 		{
-			if (it->play(reinterpret_cast<float*>(pBuffer), Length / sizeof(float)))
+			if (chimes_[it->pitch].play(it->volume / 1.7f, it->pos, reinterpret_cast<float*>(pBuffer), Length / sizeof(float)))
 				++it;
 			else
-				it = m_Dings.erase(it);
+				it = strikes_.erase(it);
 		}
 	}
 	SDL_UnlockAudioDevice(m_Audio);
@@ -380,19 +405,19 @@ void Clock::PlayDing(unsigned char* pBuffer, int Length)
 void Clock::test()
 {
 	float buffer[SAMPLE_COUNT];
-	float s_max = 0;
 	m_pNow = new tm;
 	for (int i = 0; i < 24; ++i)
 	{
 		for (int j = 0; j < 60; ++j)
 		{
+			float s_max = 0;
 			m_pNow->tm_hour = i;
 			m_pNow->tm_min = j;
 			m_Tence = std::max(0, 6 * 60 - std::abs(m_pNow->tm_hour * 60 + m_pNow->tm_min - 12 * 60))
 				/ 360.0f * (1.0f - TENCE_MIN) + TENCE_MIN;
 			m_Pitch = 12 - std::abs(m_pNow->tm_hour - 12);
 			bell_test();
-			while (m_Dings.size())
+			while (strikes_.size())
 			{
 				PlayDing((unsigned char*)buffer, sizeof(buffer));
 				for (auto & f : buffer)
@@ -402,7 +427,7 @@ void Clock::test()
 				}
 			}
 			bell_alarm();
-			while (m_Dings.size())
+			while (strikes_.size())
 			{
 				PlayDing((unsigned char*)buffer, sizeof(buffer));
 				for (auto & f : buffer)
@@ -414,7 +439,7 @@ void Clock::test()
 			if (m_pNow->tm_min == 0)
 			{
 				bell_hour();
-				while (m_Dings.size())
+				while (strikes_.size())
 				{
 					PlayDing((unsigned char*)buffer, sizeof(buffer));
 					for (auto & f : buffer)
