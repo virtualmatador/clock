@@ -230,9 +230,8 @@ void Clock::bell_alarm()
 	std::list<CHIME_INFO> chimes;
 	for (int i = 0; i < 12; ++i)
 	{
-		chimes.push_back({i * 3.0f + 0.0f, m_Tence * (i + 3) / 15.0f, i + 2});
-		chimes.push_back({i * 3.0f + 0.5f, m_Tence * (i + 2) / 15.0f, i + 1});
-		chimes.push_back({i * 3.0f + 1.0f, m_Tence * (i + 1) / 15.0f, i + 0});
+		chimes.push_back({i * 4.0f + 0.0f, m_Tence * (i + 3) / 15.0f, i + 1});
+		chimes.push_back({i * 4.0f + 1.0f, m_Tence * (i + 2) / 15.0f, i + 0});
 	}
 	Bell(chimes);
 }

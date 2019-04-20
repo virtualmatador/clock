@@ -170,7 +170,7 @@ const std::vector<std::pair<float, float>> chime::amplitude[FREQUENCY_COUNT] =
 chime::chime(float interval, float _volume, int pitch)
 {
     pos = -int(interval * SEGMENT_COUNT) * SAMPLE_COUNT;
-    volume = _volume / 3.0f;
+    volume = _volume / 2.0f;
     float note = 440 + 40 * pitch;
     for (int i = 0; i < FREQUENCY_COUNT; ++i)
     {
@@ -199,17 +199,17 @@ bool chime::play(float* buffer, int count)
         pos += count;
     else
     {
+        const float fc = 8.0f * std::atan(1.0f) / (SEGMENT_COUNT * SAMPLE_COUNT);
         for (int i = 0; i < count; ++i, ++pos)
         {
-            for (int j = 0; j < FREQUENCY_COUNT; j++)
+            for (int j = 0; j < FREQUENCY_COUNT; ++j)
             {
                 if (pos == pos_end[j])
                 {
                     ++progress[j];
                     set_step(j);
                 }
-                buffer[i] += base_amplitude[j] *
-                    std::sin(pos * 8.0 * std::atan(1.0) * frequency[j] / (SEGMENT_COUNT * SAMPLE_COUNT));
+                buffer[i] += base_amplitude[j] * std::sin(pos * frequency[j] * fc);
                 base_amplitude[j] += jump_amplitude[j];
             }
         }
