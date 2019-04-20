@@ -1,5 +1,5 @@
 
-#include "clock.h"
+#include "wall_clock.h"
 
 #include <iostream>
 
@@ -7,12 +7,12 @@ int main(int argc, char* argv[])
 {
 	try
 	{
-		Clock clock;
-		clock.Run();
+		wall_clock w_c;
+		w_c.run();
 	}
-	catch(const char* szE)
+	catch(const char* error)
 	{
-		std::cout << "Exception: " << szE << std::endl;
+		std::cout << "Exception: " << error << std::endl;
 		return -1;
 	}
 	return 0;
