@@ -36,7 +36,7 @@ private:
 	int width_;
 
 	SDL_AudioDeviceID audio_device_;
-	chime chimes_[13];
+	std::vector<chime> chimes_;
 	float tence_;
 	int pitch_;
 	bool has_chime_;

@@ -36,7 +36,6 @@ wall_clock::wall_clock()
 	, has_chime_{false}
 	, has_alarm_{false}
 	, audio_device_{0}
-	, chimes_{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}
 {
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
 		throw "SDL_INIT";
@@ -56,6 +55,7 @@ wall_clock::wall_clock()
 	font_small_ = TTF_OpenFontRW(font_source_, false, width_ / 16);
 	if (!font_small_)
 		throw "TTF_OpenFont";
+	chimes_ = std::vector<chime>{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
 	create_audio();
 }
 
