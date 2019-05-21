@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <cmath>
 #include <algorithm>
+#include <numeric>
 
 const char* wall_clock::weekdays_[] =
 {
@@ -55,7 +56,9 @@ wall_clock::wall_clock()
 	font_small_ = TTF_OpenFontRW(font_source_, false, width_ / 16);
 	if (!font_small_)
 		throw "TTF_OpenFont";
-	chimes_ = std::vector<chime>{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+	std::vector<int> sequence(13);
+	std::iota(sequence.begin(), sequence.end(), 0);
+	chimes_.insert(chimes_.end(), sequence.begin(), sequence.end());
 	create_audio();
 }
 
