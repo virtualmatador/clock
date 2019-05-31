@@ -53,6 +53,7 @@ wall_clock::wall_clock()
 	font_medium_ = TTF_OpenFontRW(font_source_, false, width_ / 8);
 	if (!font_medium_)
 		throw "TTF_OpenFont";
+	SDL_RWseek(font_source_, 0, RW_SEEK_SET);
 	font_small_ = TTF_OpenFontRW(font_source_, false, width_ / 16);
 	if (!font_small_)
 		throw "TTF_OpenFont";
