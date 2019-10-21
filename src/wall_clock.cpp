@@ -8,6 +8,7 @@
 #include <cmath>
 #include <algorithm>
 #include <numeric>
+#include <cstdlib>
 
 const char* wall_clock::weekdays_[] =
 {
@@ -128,19 +129,19 @@ void wall_clock::run()
 	}
 }
 
-int wall_clock::handle_event(SDL_Event* pEvent)
+int wall_clock::handle_event(SDL_Event* event)
 {
 	int iResult = 0;
-	switch (pEvent->type)
+	switch (event->type)
 	{
 	case SDL_QUIT:
 		iResult = -1;
 		break;
 	case SDL_KEYDOWN:
-		switch(pEvent->key.keysym.scancode)
+		switch(event->key.keysym.scancode)
 		{
 		case SDL_SCANCODE_ESCAPE:
-			if (pEvent->key.repeat == 0)
+			if (event->key.repeat == 0)
 				iResult = -1;
 			break;
 		case SDL_SCANCODE_UP:
@@ -299,37 +300,43 @@ void wall_clock::bell_test()
 
 void wall_clock::check_bell()
 {
-	bool Alarm = false;
+	bool alarm = false;
 	if (has_alarm_)
 	{
-		std::ifstream Settings(".clock");
-		std::string Time;
-		while (std::getline(Settings, Time))
+		const char* home_directory = getenv("HOME");
+		if (home_directory)
 		{
-			std::istringstream iss(Time);
-			char colon;
-			int Hour, Minute;
-			if (iss >> Hour >> colon >> Minute)
+			std::string conf_path(home_directory);
+			conf_path += "/.clock.conf";
+			std::ifstream settings(conf_path.c_str());
+			std::string alarm_time;
+			while (std::getline(settings, alarm_time))
 			{
-				if (colon == ':' && Hour == now_->tm_hour && Minute == now_->tm_min)
+				std::istringstream iss(alarm_time);
+				char colon;
+				int hour, minute;
+				if (iss >> hour >> colon >> minute)
 				{
-					bell_alarm();
-					Alarm = true;
-					break;
+					if (colon == ':' && hour == now_->tm_hour && minute == now_->tm_min)
+					{
+						bell_alarm();
+						alarm = true;
+						break;
+					}
 				}
 			}
 		}
 	}
-	if (!Alarm && has_chime_)
+	if (!alarm && has_chime_)
 	{
 		if (now_->tm_min == 0)
 			bell_hour();
 	}
 }
 
-void wall_clock::draw_text(const std::string & sText, TTF_Font* const pFont, const SDL_Color & color, int * piY)
+void wall_clock::draw_text(const std::string & text, TTF_Font* const font, const SDL_Color & color, int * y)
 {
-	SDL_Surface* surface = TTF_RenderText_Solid(pFont, sText.c_str(), color);
+	SDL_Surface* surface = TTF_RenderText_Solid(font, text.c_str(), color);
 	if (surface)
 	{
 		SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer_, surface);
@@ -338,11 +345,11 @@ void wall_clock::draw_text(const std::string & sText, TTF_Font* const pFont, con
 			int w, h;
 			if (SDL_QueryTexture(texture, nullptr, nullptr, &w, &h) == 0)
 			{
-				SDL_Rect dest{(width_ - w) / 2, *piY, w, h};
+				SDL_Rect dest{(width_ - w) / 2, *y, w, h};
 				SDL_RenderCopy(renderer_, texture, nullptr, &dest);
 				SDL_DestroyTexture(texture);
 				SDL_FreeSurface(surface);
-				*piY += h;
+				*y += h;
 			}
 		}
 	}
@@ -386,9 +393,9 @@ void wall_clock::test_bell()
 	bell_test();
 }
 
-void wall_clock::play_chimes(unsigned char* pBuffer, int Length)
+void wall_clock::play_chimes(unsigned char* buffer, int length)
 {
-	SDL_memset(pBuffer, 0, Length);
+	SDL_memset(buffer, 0, length);
 	SDL_LockAudioDevice(audio_device_);
 	if (strikes_.empty())
 		SDL_PauseAudioDevice(audio_device_, 1);
@@ -396,7 +403,7 @@ void wall_clock::play_chimes(unsigned char* pBuffer, int Length)
 	{
 		for (auto it = strikes_.begin(); it != strikes_.end();)
 		{
-			if (chimes_[it->pitch].play(it->volume / 1.7f, it->pos, reinterpret_cast<float*>(pBuffer), Length / sizeof(float)))
+			if (chimes_[it->pitch].play(it->volume / 1.7f, it->pos, reinterpret_cast<float*>(buffer), length / sizeof(float)))
 				++it;
 			else
 				it = strikes_.erase(it);

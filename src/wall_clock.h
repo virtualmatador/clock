@@ -50,19 +50,19 @@ public:
 	wall_clock();
 	~wall_clock();
 	void run();
-	void play_chimes(unsigned char* pBuffer, int Length);
+	void play_chimes(unsigned char* buffer, int length);
 
 private:
 	void create_window();
 	void create_audio();
-	int handle_event(SDL_Event* pEvent);
+	int handle_event(SDL_Event* event);
 	void tick();
 	void redraw();
 	void bell_alarm();
 	void bell_hour();
 	void bell_test();
 	void check_bell();
-	void draw_text(const std::string & sText, TTF_Font* const pFont, const SDL_Color & color, int * iY);
+	void draw_text(const std::string & text, TTF_Font* const font, const SDL_Color & color, int* y);
 	void shade_up();
 	void shade_down();
 	void silent();
