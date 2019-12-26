@@ -31,13 +31,19 @@ wall_clock::wall_clock()
 	, renderer_{nullptr}
 	, shade_{255}
 	, width_{0}
+	, height_{0}
 	, frame_time_{std::chrono::nanoseconds(0)}
-	, now_{nullptr}
+	, now_{0}
 	, tence_{TENCE_MIN}
 	, pitch_{0}
 	, has_chime_{false}
 	, has_alarm_{false}
 	, audio_device_{0}
+	, texture_second_{nullptr}
+	, texture_time_{nullptr}
+	, texture_day_{nullptr}
+	, texture_date_{nullptr}
+	, texture_options_{nullptr}
 {
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
 		throw "SDL_INIT";
@@ -45,17 +51,27 @@ wall_clock::wall_clock()
 	if (TTF_Init() < 0)
 		throw "TTF_Init";
 	font_source_ = SDL_RWFromConstMem(_binary_res_Font_ttf_start,
-		_binary_res_Font_ttf_end - _binary_res_Font_ttf_start);	
+		_binary_res_Font_ttf_end - _binary_res_Font_ttf_start);
+	int text_width = width_;
+	do
+	{
+		SDL_RWseek(font_source_, 0, RW_SEEK_SET);
+		font_big_ = TTF_OpenFontRW(font_source_, false, width_ * height_ * 4 / 9 / text_width);
+		if (!font_big_)
+			throw "TTF_OpenFont";
+		if (TTF_SizeText(font_big_, "0", &digit_width_, nullptr) < 0 ||
+			TTF_SizeText(font_big_, ":", &colon_width_, nullptr) < 0)
+			throw "TTF_SizeText";
+		text_width = digit_width_ * 6 + colon_width_ * 2;
+	} while (text_width > width_);
+	if (text_width < width_)
+		text_width = width_;
 	SDL_RWseek(font_source_, 0, RW_SEEK_SET);
-	font_big_ = TTF_OpenFontRW(font_source_, false, width_ / 4);
-	if (!font_big_)
-		throw "TTF_OpenFont";
-	SDL_RWseek(font_source_, 0, RW_SEEK_SET);
-	font_medium_ = TTF_OpenFontRW(font_source_, false, width_ / 8);
+	font_medium_ = TTF_OpenFontRW(font_source_, false, width_ * height_ * 2 / 9 / text_width);
 	if (!font_medium_)
 		throw "TTF_OpenFont";
 	SDL_RWseek(font_source_, 0, RW_SEEK_SET);
-	font_small_ = TTF_OpenFontRW(font_source_, false, width_ / 16);
+	font_small_ = TTF_OpenFontRW(font_source_, false, width_ * height_ * 1 / 9 / text_width);
 	if (!font_small_)
 		throw "TTF_OpenFont";
 	std::vector<int> sequence(13);
@@ -70,6 +86,11 @@ wall_clock::~wall_clock()
 	TTF_CloseFont(font_big_);
 	TTF_CloseFont(font_medium_);
 	TTF_CloseFont(font_small_);
+	SDL_DestroyTexture(texture_second_);
+	SDL_DestroyTexture(texture_time_);
+	SDL_DestroyTexture(texture_day_);
+	SDL_DestroyTexture(texture_date_);
+	SDL_DestroyTexture(texture_options_);
 	TTF_Quit();
 	SDL_RWclose(font_source_);
 	SDL_DestroyRenderer(renderer_);
@@ -84,10 +105,11 @@ void wall_clock::create_window()
 		0, 0, SDL_WINDOW_SHOWN | SDL_WINDOW_FULLSCREEN_DESKTOP);
 	if (!wnd_)
 		throw "SDL_create_window";
-	SDL_GetWindowSize(wnd_, &width_, nullptr);
 	renderer_ = SDL_CreateRenderer(wnd_, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 	if (!renderer_)
 		throw "SDL_CreateRenderer";
+	if (SDL_GetRendererOutputSize(renderer_, &width_, &height_) != 0)
+		throw "SDL_GetRendererOutputSize";
 }
 
 void wall_clock::create_audio()
@@ -180,56 +202,91 @@ void wall_clock::tick()
 	std::time_t t = std::chrono::system_clock::to_time_t(frame_time_);
 	if (tPre != t)
 	{
-		now_ = std::localtime(&t);
-		static int MinPre = -1;
-		if (MinPre != now_->tm_min)
+		now_ = *std::localtime(&t);
+		auto pre = *std::localtime(&tPre);
+		if (pre.tm_min != now_.tm_min)
 		{
-			tence_ = std::max(0, 6 * 60 - std::abs(now_->tm_hour * 60 + now_->tm_min - 12 * 60))
+			tence_ = std::max(0, 6 * 60 - std::abs(now_.tm_hour * 60 + now_.tm_min - 12 * 60))
 				/ 360.0f * (1.0f - TENCE_MIN) + TENCE_MIN;
-			pitch_ = 12 - std::abs(now_->tm_hour - 12);
+			pitch_ = 12 - std::abs(now_.tm_hour - 12);
 			check_bell();
-			MinPre = now_->tm_min;
+			redraw(false);
 		}
-		redraw();
+		else
+		{
+			redraw(true);
+		}
 		tPre = t;
 	}
 }
 
-void wall_clock::redraw()
+void wall_clock::redraw(const bool second_only)
 {
 	int iY = 0;
-	if (SDL_RenderClear(renderer_) == 0)
+	if (SDL_RenderClear(renderer_) != 0)
+		throw "SDL_RenderClear";
+	SDL_Color color
 	{
-		SDL_Color color
-		{
-			(unsigned char)(shade_ * tence_),
-			(unsigned char)(shade_ * tence_),
-			(unsigned char)(shade_ * tence_),
-		};
+		(unsigned char)(shade_ * tence_),
+		(unsigned char)(shade_ * tence_),
+		(unsigned char)(shade_ * tence_),
+	};
 
+	std::stringstream sSecond;
+	sSecond << std::setfill('0') << std::setw(2) << now_.tm_sec;
+	draw_text(&texture_second_, sSecond.str(), font_big_, color);
+	if (!second_only)
+	{
 		std::stringstream sTime;
 		sTime <<
-			std::setfill('0') << std::setw(2) << now_->tm_hour << ":" <<
-			std::setfill('0') << std::setw(2) << now_->tm_min << ":" <<
-			std::setfill('0') << std::setw(2) << now_->tm_sec;
-		draw_text(sTime.str(), font_big_, color, &iY);
+			std::setfill('0') << std::setw(2) << now_.tm_hour << ":" <<
+			std::setfill('0') << std::setw(2) << now_.tm_min << ":";
+		draw_text(&texture_time_, sTime.str(), font_big_, color);
 
 		std::stringstream sDay;
-		sDay << wall_clock::weekdays_[now_->tm_wday];
-		draw_text(sDay.str(), font_medium_, color, &iY);
+		sDay << wall_clock::weekdays_[now_.tm_wday];
+		draw_text(&texture_day_, sDay.str(), font_medium_, color);
 
 		std::stringstream sDate;
 		sDate <<
-			now_->tm_year + 1900 << "/" <<
-			std::setfill('0') << std::setw(2) << now_->tm_mon + 1 << "/" <<
-			std::setfill('0') << std::setw(2) << now_->tm_mday;
-		draw_text(sDate.str(), font_medium_, color, &iY);
+			now_.tm_year + 1900 << "/" <<
+			std::setfill('0') << std::setw(2) << now_.tm_mon + 1 << "/" <<
+			std::setfill('0') << std::setw(2) << now_.tm_mday;
+		draw_text(&texture_date_, sDate.str(), font_medium_, color);
 
 		std::stringstream sInfo;
 		sInfo << "\x5:" << (has_chime_ ? '\x7' : '\x8') << "  " << "\x6:" << (has_alarm_ ? '\x7' : '\x8');
-		draw_text(sInfo.str(), font_small_, color, &iY);
+		draw_text(&texture_options_, sInfo.str(), font_small_, color);
 	}
+	render_texture(texture_second_, width_ / 2 + digit_width_ * 2 + colon_width_, iY);
+	iY += render_texture(texture_time_, width_ / 2 - digit_width_, iY);
+	iY += render_texture(texture_day_, width_ / 2, iY);
+	iY += render_texture(texture_date_, width_ / 2, iY);
+	iY += render_texture(texture_options_, width_ / 2, iY);
 	SDL_RenderPresent(renderer_);
+}
+
+void wall_clock::draw_text(SDL_Texture** texture, const std::string & text, TTF_Font* font, const SDL_Color & color)
+{
+	SDL_Surface* surface = TTF_RenderText_Solid(font, text.c_str(), color);
+	if (!surface)
+		throw "TTF_RenderText_Solid";
+	SDL_DestroyTexture(*texture);
+	*texture = SDL_CreateTextureFromSurface(renderer_, surface);
+	if (!*texture)
+		throw "SDL_CreateTextureFromSurface";
+	SDL_FreeSurface(surface);
+}
+
+int wall_clock::render_texture(SDL_Texture* texture, const int x, const int y)
+{
+	int w, h;
+	if (SDL_QueryTexture(texture, nullptr, nullptr, &w, &h) != 0)
+		throw "SDL_QueryTexture";
+	SDL_Rect dest{x - w / 2, y, w, h};
+	if (SDL_RenderCopy(renderer_, texture, nullptr, &dest) != 0)
+		throw "SDL_RenderCopy";
+	return h;
 }
 
 void wall_clock::bell_alarm()
@@ -259,7 +316,7 @@ void wall_clock::bell_alarm()
 
 void wall_clock::bell_hour()
 {
-	int count = now_->tm_hour % 12;
+	int count = now_.tm_hour % 12;
 	if (count == 0)
 		count = 12;
 	SDL_LockAudioDevice(audio_device_);
@@ -317,7 +374,7 @@ void wall_clock::check_bell()
 				int hour, minute;
 				if (iss >> hour >> colon >> minute)
 				{
-					if (colon == ':' && hour == now_->tm_hour && minute == now_->tm_min)
+					if (colon == ':' && hour == now_.tm_hour && minute == now_.tm_min)
 					{
 						bell_alarm();
 						alarm = true;
@@ -329,29 +386,8 @@ void wall_clock::check_bell()
 	}
 	if (!alarm && has_chime_)
 	{
-		if (now_->tm_min == 0)
+		if (now_.tm_min == 0)
 			bell_hour();
-	}
-}
-
-void wall_clock::draw_text(const std::string & text, TTF_Font* const font, const SDL_Color & color, int * y)
-{
-	SDL_Surface* surface = TTF_RenderText_Solid(font, text.c_str(), color);
-	if (surface)
-	{
-		SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer_, surface);
-		if (texture)
-		{
-			int w, h;
-			if (SDL_QueryTexture(texture, nullptr, nullptr, &w, &h) == 0)
-			{
-				SDL_Rect dest{(width_ - w) / 2, *y, w, h};
-				SDL_RenderCopy(renderer_, texture, nullptr, &dest);
-				SDL_DestroyTexture(texture);
-				SDL_FreeSurface(surface);
-				*y += h;
-			}
-		}
 	}
 }
 
@@ -359,14 +395,14 @@ void wall_clock::shade_up()
 {
 	if (shade_ < 255)
 		++shade_;
-	redraw();
+	redraw(false);
 }
 
 void wall_clock::shade_down()
 {
 	if (shade_ > 0)
 		--shade_;
-	redraw();
+	redraw(false);
 }
 
 void wall_clock::silent()
@@ -379,13 +415,13 @@ void wall_clock::silent()
 void wall_clock::toggle_alarm()
 {
 	has_alarm_ = !has_alarm_;
-	redraw();
+	redraw(false);
 }
 
 void wall_clock::toggle_chime()
 {
 	has_chime_ = !has_chime_;
-	redraw();
+	redraw(false);
 }
 
 void wall_clock::test_bell()
@@ -422,11 +458,11 @@ void wall_clock::test()
 		for (int j = 0; j < 60; ++j)
 		{
 			float s_max = 0;
-			now_->tm_hour = i;
-			now_->tm_min = j;
-			tence_ = std::max(0, 6 * 60 - std::abs(now_->tm_hour * 60 + now_->tm_min - 12 * 60))
+			now_.tm_hour = i;
+			now_.tm_min = j;
+			tence_ = std::max(0, 6 * 60 - std::abs(now_.tm_hour * 60 + now_.tm_min - 12 * 60))
 				/ 360.0f * (1.0f - TENCE_MIN) + TENCE_MIN;
-			pitch_ = 12 - std::abs(now_->tm_hour - 12);
+			pitch_ = 12 - std::abs(now_.tm_hour - 12);
 			bell_test();
 			while (strikes_.size())
 			{
@@ -447,7 +483,7 @@ void wall_clock::test()
 					s_max = std::max(s_max, -f);
 				}
 			}
-			if (now_->tm_min == 0)
+			if (now_.tm_min == 0)
 			{
 				bell_hour();
 				while (strikes_.size())

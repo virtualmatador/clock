@@ -24,7 +24,7 @@ class wall_clock
 
 private:
 	std::chrono::system_clock::time_point frame_time_;
-	std::tm* now_;
+	std::tm now_;
 
 	SDL_Window* wnd_;
 	SDL_Renderer *renderer_;
@@ -32,8 +32,16 @@ private:
 	TTF_Font* font_big_;
 	TTF_Font* font_medium_;
 	TTF_Font* font_small_;
+	SDL_Texture* texture_second_;
+	SDL_Texture* texture_time_;
+	SDL_Texture* texture_day_;
+	SDL_Texture* texture_date_;
+	SDL_Texture* texture_options_;
 	unsigned char shade_;
 	int width_;
+	int height_;
+	int digit_width_;
+	int colon_width_;
 
 	SDL_AudioDeviceID audio_device_;
 	std::vector<chime> chimes_;
@@ -57,12 +65,13 @@ private:
 	void create_audio();
 	int handle_event(SDL_Event* event);
 	void tick();
-	void redraw();
+	void redraw(const bool second_only);
+	void draw_text(SDL_Texture** texture, const std::string & text, TTF_Font* font, const SDL_Color & color);
+	int render_texture(SDL_Texture* texture, const int x, const int y);
 	void bell_alarm();
 	void bell_hour();
 	void bell_test();
 	void check_bell();
-	void draw_text(const std::string & text, TTF_Font* const font, const SDL_Color & color, int* y);
 	void shade_up();
 	void shade_down();
 	void silent();
