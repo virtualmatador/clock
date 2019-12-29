@@ -198,7 +198,7 @@ int wall_clock::handle_event(SDL_Event* event)
 
 void wall_clock::tick()
 {
-	static std::time_t tPre{0};
+	static std::time_t tPre = std::chrono::system_clock::to_time_t(frame_time_ - std::chrono::minutes(1));
 	std::time_t t = std::chrono::system_clock::to_time_t(frame_time_);
 	if (tPre != t)
 	{
