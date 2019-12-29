@@ -9,6 +9,7 @@ BUILD_LINUX := build_linux
 OBJECTS_LINUX := $(patsubst src/%.cpp, $(BUILD_LINUX)/%.o, $(SOURCES))
 CC_LINUX := g++
 LIBS_LINUX := $(LIBS)
+LD_FLAGS_LINUX := -no-pie
 
 BIN_WINDOWS := bin_windows
 TARGET_WINDOWS := $(BIN_WINDOWS)/Clock.exe
@@ -16,6 +17,7 @@ BUILD_WINDOWS := build_windows
 OBJECTS_WINDOWS := $(patsubst src/%.cpp, $(BUILD_WINDOWS)/%.o, $(SOURCES))
 CC_WINDOWS := x86_64-w64-mingw32-g++
 LIBS_WINDOWS := -lmingw32 -static-libstdc++ -static-libgcc $(LIBS)
+LD_FLAGS_WINDOWS := -Wl,-subsystem,windows
 
 .PHONY: clean, install, uninstall
 
@@ -24,11 +26,11 @@ all: $(TARGET_LINUX) $(TARGET_WINDOWS)
 define PROGRAM_template
 $(1): $(2) $(RESOURCES)
 	mkdir -p $(3)
-	$(4) -o $$@ $(2) $(5) -no-pie -Wl,--format=binary -Wl,$(RESOURCES) -Wl,--format=default
+	$(4) -o $$@ $(2) $(5) $(6) -Wl,--format=binary -Wl,$(RESOURCES) -Wl,--format=default
 endef
 
-$(eval $(call PROGRAM_template, $(TARGET_LINUX), $(OBJECTS_LINUX), $(BIN_LINUX), $(CC_LINUX), $(LIBS_LINUX)))
-$(eval $(call PROGRAM_template, $(TARGET_WINDOWS), $(OBJECTS_WINDOWS), $(BIN_WINDOWS), $(CC_WINDOWS), $(LIBS_WINDOWS)))
+$(eval $(call PROGRAM_template, $(TARGET_LINUX), $(OBJECTS_LINUX), $(BIN_LINUX), $(CC_LINUX), $(LIBS_LINUX), $(LD_FLAGS_LINUX)))
+$(eval $(call PROGRAM_template, $(TARGET_WINDOWS), $(OBJECTS_WINDOWS), $(BIN_WINDOWS), $(CC_WINDOWS), $(LIBS_WINDOWS), $(LD_FLAGS_WINDOWS)))
 
 define OBJECT_RULE
 $(1)/$(subst $() \,,$(shell $(3) -MM $(2)))
