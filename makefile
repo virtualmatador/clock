@@ -49,6 +49,7 @@ clean:
 install:
 	@echo "clock installing ..."
 	sudo mkdir -p /var/wwz/www.shaidin.com/html/clock/
+	sudo cp .clock.conf /var/wwz/www.shaidin.com/html/clock/
 	rm -f bin_linux/clock.zip
 	cd bin_linux && zip clock.zip clock && cd ..
 	sudo cp bin_linux/clock.zip /var/wwz/www.shaidin.com/html/clock/
@@ -59,6 +60,7 @@ install:
 
 uninstall:
 	@echo "clock uninstalling ..."
+	sudo rm -f /var/wwz/www.shaidin.com/html/clock/.clock.conf
 	sudo rm -f /var/wwz/www.shaidin.com/html/clock/clock.zip
 	sudo rm -f /var/wwz/www.shaidin.com/html/clock/Clock.exe.zip
 	@echo "clock uninstalled."

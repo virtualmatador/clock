@@ -4,8 +4,8 @@
 #include <SDL2/SDL_ttf.h>
 
 #include <chrono>
-#include <string>
 #include <list>
+#include <string>
 
 #define TENCE_MIN 0.25f
 
@@ -37,7 +37,7 @@ private:
 	SDL_Texture* texture_day_;
 	SDL_Texture* texture_date_;
 	SDL_Texture* texture_options_;
-	unsigned char shade_;
+	unsigned char brightness_;
 	int width_;
 	int height_;
 	int digit_width_;
@@ -49,6 +49,7 @@ private:
 	int pitch_;
 	bool has_chime_;
 	bool has_alarm_;
+	int next_alarm_;
 	std::list<STRIKE> strikes_;
 
 private:
@@ -65,17 +66,13 @@ private:
 	void create_audio();
 	int handle_event(SDL_Event* event);
 	void tick();
+	void read_config();
 	void redraw(const bool second_only);
 	void draw_text(SDL_Texture** texture, const std::string & text, TTF_Font* font, const SDL_Color & color);
 	int render_texture(SDL_Texture* texture, const int x, const int y);
 	void bell_alarm();
-	void bell_hour();
+	void bell_chime();
 	void bell_test();
-	void check_bell();
-	void shade_up();
-	void shade_down();
 	void silent();
-	void toggle_alarm();
-	void toggle_chime();
 	void test_bell();
 };

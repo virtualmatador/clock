@@ -1,14 +1,15 @@
 #include "wall_clock.h"
 
-#include <iostream>
-#include <fstream>
-#include <ctime>
-#include <sstream>
-#include <iomanip>
-#include <cmath>
 #include <algorithm>
-#include <numeric>
+#include <cmath>
 #include <cstdlib>
+#include <ctime>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <numeric>
+#include <set>
+#include <sstream>
 
 const char* wall_clock::weekdays_[] =
 {
@@ -29,7 +30,7 @@ void play_audio(void* pData, unsigned char* pBuffer, int Length)
 wall_clock::wall_clock()
 	: wnd_{nullptr}
 	, renderer_{nullptr}
-	, shade_{255}
+	, brightness_{255}
 	, width_{0}
 	, height_{0}
 	, frame_time_{std::chrono::nanoseconds(0)}
@@ -38,6 +39,7 @@ wall_clock::wall_clock()
 	, pitch_{0}
 	, has_chime_{false}
 	, has_alarm_{false}
+	, next_alarm_{-1}
 	, audio_device_{0}
 	, texture_second_{nullptr}
 	, texture_time_{nullptr}
@@ -159,27 +161,14 @@ int wall_clock::handle_event(SDL_Event* event)
 	case SDL_QUIT:
 		iResult = -1;
 		break;
-	case SDL_KEYDOWN:
+	case SDL_KEYUP:
 		switch(event->key.keysym.scancode)
 		{
 		case SDL_SCANCODE_ESCAPE:
-			if (event->key.repeat == 0)
-				iResult = -1;
-			break;
-		case SDL_SCANCODE_UP:
-			shade_up();
-			break;
-		case SDL_SCANCODE_DOWN:
-			shade_down();
+			iResult = -1;
 			break;
 		case SDL_SCANCODE_SPACE:
 			silent();
-			break;
-		case SDL_SCANCODE_A:
-			toggle_alarm();
-			break;
-		case SDL_SCANCODE_C:
-			toggle_chime();
 			break;
 		case SDL_SCANCODE_R:
 			test_bell();
@@ -196,6 +185,98 @@ int wall_clock::handle_event(SDL_Event* event)
 	return iResult;
 }
 
+void wall_clock::read_config()
+{
+	brightness_ = 255;
+	has_chime_ = false;
+	has_alarm_ = false;
+	next_alarm_ = -1;
+	const char* home_directory = getenv("HOME");
+	if (home_directory)
+	{
+		std::string conf_path { home_directory };
+		conf_path += "/.clock.conf";
+		std::ifstream config_file(conf_path.c_str());
+		std::string config;
+		std::set<int> alarms;
+		while (std::getline(config_file, config))
+		{
+			std::istringstream pair_stream { config };
+			std::string key, value;
+			pair_stream >> key >> value;
+			if (key == "brightness")
+			{
+				int brightness = std::stoi(value);
+				if (brightness >= 0 && brightness < 256)
+				{
+					brightness_ = (unsigned char)(brightness);
+				}
+			}
+			else if (key == "chime")
+			{
+				if (value == "true")
+				{
+					has_chime_ = true;
+				}
+				else if (value == "false")
+				{
+					has_chime_ = false;
+				}
+			}
+			else if (key == "alarms")
+			{
+				if (value == "true")
+				{
+					has_alarm_ = true;
+				}
+				else if (value == "false")
+				{
+					has_alarm_ = false;
+				}
+			}
+			else if (key == "alarm")
+			{
+				std::istringstream alarm_stream { value };
+				char colon;
+				int hour, minute;
+				if (alarm_stream >> hour >> colon >> minute)
+				{
+					if (colon == ':' && hour < 24 && hour >= 0 && minute < 60 && minute >= 0)
+					{
+						alarms.insert(hour * 60 + minute);
+					}
+				}
+			}
+		}
+		bool will_alarm = false;
+		auto alarm = alarms.lower_bound(now_.tm_hour * 60 + now_.tm_min);
+		if (alarm != alarms.end() && *alarm == now_.tm_hour * 60 + now_.tm_min)
+		{
+			if (has_alarm_)
+			{
+				bell_alarm();
+				will_alarm = true;
+			}
+			++alarm;
+		}
+		if (has_chime_)
+		{
+			if (now_.tm_min == 0 && !will_alarm)
+			{
+				bell_chime();
+			}
+		}
+		if (alarm == alarms.end())
+		{
+			alarm = alarms.begin();
+		}
+		if (alarm != alarms.end())
+		{
+			next_alarm_ = *alarm;
+		}
+	}
+}
+
 void wall_clock::tick()
 {
 	static std::time_t tPre = std::chrono::system_clock::to_time_t(frame_time_ - std::chrono::minutes(1));
@@ -209,7 +290,7 @@ void wall_clock::tick()
 			tence_ = std::max(0, 6 * 60 - std::abs(now_.tm_hour * 60 + now_.tm_min - 12 * 60))
 				/ 360.0f * (1.0f - TENCE_MIN) + TENCE_MIN;
 			pitch_ = 12 - std::abs(now_.tm_hour - 12);
-			check_bell();
+			read_config();
 			redraw(false);
 		}
 		else
@@ -227,9 +308,9 @@ void wall_clock::redraw(const bool second_only)
 		throw "SDL_RenderClear";
 	SDL_Color color
 	{
-		(unsigned char)(shade_ * tence_),
-		(unsigned char)(shade_ * tence_),
-		(unsigned char)(shade_ * tence_),
+		(unsigned char)(brightness_ * tence_),
+		(unsigned char)(brightness_ * tence_),
+		(unsigned char)(brightness_ * tence_),
 	};
 
 	std::stringstream sSecond;
@@ -238,9 +319,9 @@ void wall_clock::redraw(const bool second_only)
 	if (!second_only)
 	{
 		std::stringstream sTime;
-		sTime <<
-			std::setfill('0') << std::setw(2) << now_.tm_hour << ":" <<
-			std::setfill('0') << std::setw(2) << now_.tm_min << ":";
+		sTime << std::setfill('0') <<
+			std::setw(2) << now_.tm_hour << ":" <<
+			std::setw(2) << now_.tm_min << ":";
 		draw_text(&texture_time_, sTime.str(), font_big_, color);
 
 		std::stringstream sDay;
@@ -248,14 +329,22 @@ void wall_clock::redraw(const bool second_only)
 		draw_text(&texture_day_, sDay.str(), font_medium_, color);
 
 		std::stringstream sDate;
-		sDate <<
+		sDate << std::setfill('0') <<
 			now_.tm_year + 1900 << "/" <<
-			std::setfill('0') << std::setw(2) << now_.tm_mon + 1 << "/" <<
-			std::setfill('0') << std::setw(2) << now_.tm_mday;
+			std::setw(2) << now_.tm_mon + 1 << "/" <<
+			std::setw(2) << now_.tm_mday;
 		draw_text(&texture_date_, sDate.str(), font_medium_, color);
 
 		std::stringstream sInfo;
-		sInfo << "\x5:" << (has_chime_ ? '\x7' : '\x8') << "  " << "\x6:" << (has_alarm_ ? '\x7' : '\x8');
+		sInfo
+			<< "\x5:" << (has_chime_ ? '\x7' : '\x8') << "  "
+			<< "\x6:" << (has_alarm_ ? '\x7' : '\x8') << " ";
+		if (next_alarm_ != -1)
+		{
+			sInfo << std::setfill('0') <<
+				std::setw(2) << next_alarm_ / 60 << ':' <<
+				std::setw(2) << next_alarm_ % 60;
+		}		
 		draw_text(&texture_options_, sInfo.str(), font_small_, color);
 	}
 	render_texture(texture_second_, width_ / 2 + digit_width_ * 2 + colon_width_, iY);
@@ -314,7 +403,7 @@ void wall_clock::bell_alarm()
 	SDL_PauseAudioDevice(audio_device_, 0);
 }
 
-void wall_clock::bell_hour()
+void wall_clock::bell_chime()
 {
 	int count = now_.tm_hour % 12;
 	if (count == 0)
@@ -344,65 +433,15 @@ void wall_clock::bell_test()
 		for (int i = 0; i < 2; ++i)
 		{
 			strikes_.push_back(
-				{
-					-int((i * 2.0f + 0.0f) * SEGMENT_COUNT) * SAMPLE_COUNT,
-					tence_ * 0.75f,
-					pitch_
-				});
+			{
+				-int((i * 2.0f + 0.0f) * SEGMENT_COUNT) * SAMPLE_COUNT,
+				tence_ * 0.75f,
+				pitch_
+			});
 		}
 	}
 	SDL_UnlockAudioDevice(audio_device_);
 	SDL_PauseAudioDevice(audio_device_, 0);
-}
-
-void wall_clock::check_bell()
-{
-	bool alarm = false;
-	if (has_alarm_)
-	{
-		const char* home_directory = getenv("HOME");
-		if (home_directory)
-		{
-			std::string conf_path(home_directory);
-			conf_path += "/.clock.conf";
-			std::ifstream settings(conf_path.c_str());
-			std::string alarm_time;
-			while (std::getline(settings, alarm_time))
-			{
-				std::istringstream iss(alarm_time);
-				char colon;
-				int hour, minute;
-				if (iss >> hour >> colon >> minute)
-				{
-					if (colon == ':' && hour == now_.tm_hour && minute == now_.tm_min)
-					{
-						bell_alarm();
-						alarm = true;
-						break;
-					}
-				}
-			}
-		}
-	}
-	if (!alarm && has_chime_)
-	{
-		if (now_.tm_min == 0)
-			bell_hour();
-	}
-}
-
-void wall_clock::shade_up()
-{
-	if (shade_ < 255)
-		++shade_;
-	redraw(false);
-}
-
-void wall_clock::shade_down()
-{
-	if (shade_ > 0)
-		--shade_;
-	redraw(false);
 }
 
 void wall_clock::silent()
@@ -410,18 +449,6 @@ void wall_clock::silent()
 	SDL_LockAudioDevice(audio_device_);
 	strikes_.remove_if([](auto & strike){return strike.pos <= 0;});
 	SDL_UnlockAudioDevice(audio_device_);
-}
-
-void wall_clock::toggle_alarm()
-{
-	has_alarm_ = !has_alarm_;
-	redraw(false);
-}
-
-void wall_clock::toggle_chime()
-{
-	has_chime_ = !has_chime_;
-	redraw(false);
 }
 
 void wall_clock::test_bell()
