@@ -30,6 +30,7 @@ void play_audio(void* pData, unsigned char* pBuffer, int Length)
 wall_clock::wall_clock()
 	: wnd_{nullptr}
 	, renderer_{nullptr}
+	, volume_{100}
 	, brightness_{255}
 	, width_{0}
 	, height_{0}
@@ -187,6 +188,7 @@ int wall_clock::handle_event(SDL_Event* event)
 
 void wall_clock::read_config()
 {
+	volume_ = 100;
 	brightness_ = 255;
 	has_chime_ = false;
 	has_alarm_ = false;
@@ -204,15 +206,36 @@ void wall_clock::read_config()
 			std::istringstream pair_stream { config };
 			std::string key, value;
 			pair_stream >> key >> value;
-			if (key == "brightness")
+			if (key == "alarm")
+			{
+				std::istringstream alarm_stream { value };
+				char colon;
+				int hour, minute;
+				if (alarm_stream >> hour >> colon >> minute)
+				{
+					if (colon == ':' && hour < 24 && hour >= 0 && minute < 60 && minute >= 0)
+					{
+						alarms.insert(hour * 60 + minute);
+					}
+				}
+			}
+			else if (key == "volume")
+			{
+				int volume = std::stoi(value);
+				if (volume >= 0 && volume <= 100)
+				{
+					volume_ = volume;
+				}
+			}
+			else if (key == "brightness")
 			{
 				int brightness = std::stoi(value);
 				if (brightness >= 0 && brightness < 256)
 				{
-					brightness_ = (unsigned char)(brightness);
+					brightness_ = brightness;
 				}
 			}
-			else if (key == "chime")
+			else if (key == "chimes")
 			{
 				if (value == "true")
 				{
@@ -232,19 +255,6 @@ void wall_clock::read_config()
 				else if (value == "false")
 				{
 					has_alarm_ = false;
-				}
-			}
-			else if (key == "alarm")
-			{
-				std::istringstream alarm_stream { value };
-				char colon;
-				int hour, minute;
-				if (alarm_stream >> hour >> colon >> minute)
-				{
-					if (colon == ':' && hour < 24 && hour >= 0 && minute < 60 && minute >= 0)
-					{
-						alarms.insert(hour * 60 + minute);
-					}
 				}
 			}
 		}
@@ -388,13 +398,13 @@ void wall_clock::bell_alarm()
 			strikes_.push_back(
 				{
 					-int((i * 4.0f + 0.0f) * SEGMENT_COUNT) * SAMPLE_COUNT,
-					tence_ * (i + 1) / 13.0f * 1.0f,
+					(volume_ / 100.0f) * tence_ * (i + 1) / 13.0f * 1.0f,
 					i
 				});
 			strikes_.push_back(
 				{
 					-int((i * 4.0f + 1.0f) * SEGMENT_COUNT) * SAMPLE_COUNT,
-					tence_ * (i + 1) / 13.0f * 0.5f,
+					(volume_ / 100.0f) * tence_ * (i + 1) / 13.0f * 0.5f,
 					i
 				});
 		}
@@ -416,7 +426,7 @@ void wall_clock::bell_chime()
 			strikes_.push_back(
 				{
 					-int((i * 1.5f + 0.0f) * SEGMENT_COUNT) * SAMPLE_COUNT,
-					tence_ * 0.75f,
+					(volume_ / 100.0f) * tence_ * 0.75f,
 					pitch_
 				});
 		}
@@ -435,7 +445,7 @@ void wall_clock::bell_test()
 			strikes_.push_back(
 			{
 				-int((i * 2.0f + 0.0f) * SEGMENT_COUNT) * SAMPLE_COUNT,
-				tence_ * 0.75f,
+				(volume_ / 100.0f) * tence_ * 0.75f,
 				pitch_
 			});
 		}

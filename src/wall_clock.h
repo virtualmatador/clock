@@ -37,7 +37,8 @@ private:
 	SDL_Texture* texture_day_;
 	SDL_Texture* texture_date_;
 	SDL_Texture* texture_options_;
-	unsigned char brightness_;
+	int volume_;
+	int brightness_;
 	int width_;
 	int height_;
 	int digit_width_;
