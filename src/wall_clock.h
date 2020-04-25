@@ -39,6 +39,7 @@ private:
 	SDL_Texture* texture_options_;
 	int volume_;
 	int brightness_;
+	int display_;
 	int width_;
 	int height_;
 	int digit_width_;
@@ -63,7 +64,7 @@ public:
 	void play_chimes(unsigned char* buffer, int length);
 
 private:
-	void create_window();
+	void set_window();
 	void create_audio();
 	int handle_event(SDL_Event* event);
 	void tick();

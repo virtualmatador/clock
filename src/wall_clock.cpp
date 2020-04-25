@@ -30,8 +30,13 @@ void play_audio(void* pData, unsigned char* pBuffer, int Length)
 wall_clock::wall_clock()
 	: wnd_{nullptr}
 	, renderer_{nullptr}
+	, font_source_{nullptr}
+	, font_big_{nullptr}
+	, font_medium_{nullptr}
+	, font_small_{nullptr}
 	, volume_{100}
 	, brightness_{255}
+	, display_{0}
 	, width_{0}
 	, height_{0}
 	, frame_time_{std::chrono::nanoseconds(0)}
@@ -50,33 +55,20 @@ wall_clock::wall_clock()
 {
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
 		throw "SDL_INIT";
-	create_window();
+	SDL_ShowCursor(SDL_DISABLE);
+	wnd_ = SDL_CreateWindow("wall_clock", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+		0, 0, SDL_WINDOW_HIDDEN | SDL_WINDOW_BORDERLESS);
+	if (!wnd_)
+		throw "SDL_create_window";
 	if (TTF_Init() < 0)
 		throw "TTF_Init";
 	font_source_ = SDL_RWFromConstMem(_binary_res_Font_ttf_start,
 		_binary_res_Font_ttf_end - _binary_res_Font_ttf_start);
-	int text_width = width_;
-	do
+	if (!font_source_)
 	{
-		SDL_RWseek(font_source_, 0, RW_SEEK_SET);
-		font_big_ = TTF_OpenFontRW(font_source_, false, width_ * height_ * 4 / 9 / text_width);
-		if (!font_big_)
-			throw "TTF_OpenFont";
-		if (TTF_SizeText(font_big_, "0", &digit_width_, nullptr) < 0 ||
-			TTF_SizeText(font_big_, ":", &colon_width_, nullptr) < 0)
-			throw "TTF_SizeText";
-		text_width = digit_width_ * 6 + colon_width_ * 2;
-	} while (text_width > width_);
-	if (text_width < width_)
-		text_width = width_;
-	SDL_RWseek(font_source_, 0, RW_SEEK_SET);
-	font_medium_ = TTF_OpenFontRW(font_source_, false, width_ * height_ * 2 / 9 / text_width);
-	if (!font_medium_)
-		throw "TTF_OpenFont";
-	SDL_RWseek(font_source_, 0, RW_SEEK_SET);
-	font_small_ = TTF_OpenFontRW(font_source_, false, width_ * height_ * 1 / 9 / text_width);
-	if (!font_small_)
-		throw "TTF_OpenFont";
+		throw "SDL_RWFromConstMem";
+	}
+	set_window();
 	std::vector<int> sequence(13);
 	std::iota(sequence.begin(), sequence.end(), 0);
 	chimes_.insert(chimes_.end(), sequence.begin(), sequence.end());
@@ -101,18 +93,61 @@ wall_clock::~wall_clock()
 	SDL_Quit();
 }
 
-void wall_clock::create_window()
+void wall_clock::set_window()
 {
-	SDL_ShowCursor(SDL_DISABLE);
-	wnd_ = SDL_CreateWindow("wall_clock", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-		0, 0, SDL_WINDOW_SHOWN | SDL_WINDOW_FULLSCREEN_DESKTOP);
-	if (!wnd_)
-		throw "SDL_create_window";
+	SDL_Rect frame;
+	SDL_GetDisplayBounds(display_, &frame);
+	SDL_HideWindow(wnd_);
+	SDL_SetWindowFullscreen(wnd_, 0);
+	SDL_SetWindowPosition(wnd_, frame.x, frame.y);
+	SDL_SetWindowSize(wnd_, frame.w, frame.h);
+	SDL_SetWindowFullscreen(wnd_, SDL_WINDOW_FULLSCREEN);
+	SDL_ShowWindow(wnd_);
+	SDL_DestroyRenderer(renderer_);
 	renderer_ = SDL_CreateRenderer(wnd_, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 	if (!renderer_)
+	{
 		throw "SDL_CreateRenderer";
+	}
 	if (SDL_GetRendererOutputSize(renderer_, &width_, &height_) != 0)
+	{
 		throw "SDL_GetRendererOutputSize";
+	}
+	int text_width = width_;
+	do
+	{
+		SDL_RWseek(font_source_, 0, RW_SEEK_SET);
+		TTF_CloseFont(font_big_);
+		font_big_ = TTF_OpenFontRW(font_source_, false, width_ * height_ * 4 / 9 / text_width);
+		if (!font_big_)
+		{
+			throw "TTF_OpenFont";
+		}
+		if (TTF_SizeText(font_big_, "0", &digit_width_, nullptr) < 0 ||
+			TTF_SizeText(font_big_, ":", &colon_width_, nullptr) < 0)
+		{
+			throw "TTF_SizeText";
+		}
+		text_width = digit_width_ * 6 + colon_width_ * 2;
+	} while (text_width > width_);
+	if (text_width < width_)
+	{
+		text_width = width_;
+	}
+	SDL_RWseek(font_source_, 0, RW_SEEK_SET);
+	TTF_CloseFont(font_medium_);
+	font_medium_ = TTF_OpenFontRW(font_source_, false, width_ * height_ * 2 / 9 / text_width);
+	if (!font_medium_)
+	{
+		throw "TTF_OpenFont";
+	}
+	SDL_RWseek(font_source_, 0, RW_SEEK_SET);
+	TTF_CloseFont(font_small_);
+	font_small_ = TTF_OpenFontRW(font_source_, false, width_ * height_ * 1 / 9 / text_width);
+	if (!font_small_)
+	{
+		throw "TTF_OpenFont";
+	}
 }
 
 void wall_clock::create_audio()
@@ -127,7 +162,9 @@ void wall_clock::create_audio()
     Alarm.userdata = this;
 	audio_device_ = SDL_OpenAudioDevice(nullptr, 0, &Alarm, nullptr, 0);
  	if (!audio_device_)
+	{
 		throw "SDL_create_audio";
+	}
 }
 
 void wall_clock::run()
@@ -148,7 +185,9 @@ void wall_clock::run()
 			if (SDL_WaitEventTimeout(&event, (1000000000 - tmp) / 1000000) == 1)
 			{
 				if (handle_event(&event) < 0)
+				{
 					break;
+				}
 			}
 		}
 	}
@@ -235,6 +274,14 @@ void wall_clock::read_config()
 					brightness_ = brightness;
 				}
 			}
+			else if (key == "display")
+			{
+				int display = std::stoi(value);
+				if (display > 0 && display <= SDL_GetNumVideoDisplays())
+				{
+					display_ =  display - 1;
+				}
+			}
 			else if (key == "chimes")
 			{
 				if (value == "true")
@@ -301,6 +348,10 @@ void wall_clock::tick()
 				/ 360.0f * (1.0f - TENCE_MIN) + TENCE_MIN;
 			pitch_ = 12 - std::abs(now_.tm_hour - 12);
 			read_config();
+			if (SDL_GetWindowDisplayIndex(wnd_) != display_)
+			{
+				set_window();
+			}
 			redraw(false);
 		}
 		else
@@ -315,7 +366,9 @@ void wall_clock::redraw(const bool second_only)
 {
 	int iY = 0;
 	if (SDL_RenderClear(renderer_) != 0)
+	{
 		throw "SDL_RenderClear";
+	}
 	SDL_Color color
 	{
 		(unsigned char)(brightness_ * tence_),
@@ -369,11 +422,15 @@ void wall_clock::draw_text(SDL_Texture** texture, const std::string & text, TTF_
 {
 	SDL_Surface* surface = TTF_RenderText_Solid(font, text.c_str(), color);
 	if (!surface)
+	{
 		throw "TTF_RenderText_Solid";
+	}
 	SDL_DestroyTexture(*texture);
 	*texture = SDL_CreateTextureFromSurface(renderer_, surface);
 	if (!*texture)
+	{
 		throw "SDL_CreateTextureFromSurface";
+	}
 	SDL_FreeSurface(surface);
 }
 
@@ -381,10 +438,14 @@ int wall_clock::render_texture(SDL_Texture* texture, const int x, const int y)
 {
 	int w, h;
 	if (SDL_QueryTexture(texture, nullptr, nullptr, &w, &h) != 0)
+	{
 		throw "SDL_QueryTexture";
+	}
 	SDL_Rect dest{x - w / 2, y, w, h};
 	if (SDL_RenderCopy(renderer_, texture, nullptr, &dest) != 0)
+	{
 		throw "SDL_RenderCopy";
+	}
 	return h;
 }
 
@@ -417,7 +478,9 @@ void wall_clock::bell_chime()
 {
 	int count = now_.tm_hour % 12;
 	if (count == 0)
+	{
 		count = 12;
+	}
 	SDL_LockAudioDevice(audio_device_);
 	if (strikes_.empty())
 	{
@@ -477,9 +540,13 @@ void wall_clock::play_chimes(unsigned char* buffer, int length)
 		for (auto it = strikes_.begin(); it != strikes_.end();)
 		{
 			if (chimes_[it->pitch].play(it->volume / 1.7f, it->pos, reinterpret_cast<float*>(buffer), length / sizeof(float)))
+			{
 				++it;
+			}
 			else
+			{
 				it = strikes_.erase(it);
+			}
 		}
 	}
 	SDL_UnlockAudioDevice(audio_device_);
@@ -534,7 +601,9 @@ void wall_clock::test()
 				}
 			}
 			if (s_max >= 1.0)
+			{
 				throw "Max hit";
+			}
 			std::cout << i << ":" << j << " " << s_max << std::endl;
 		}
 	}

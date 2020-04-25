@@ -209,7 +209,9 @@ chime::~chime()
 bool chime::play(float volume, int & pos, float* buffer, int count)
 {
     if (pos < 0)
+    {
         pos += count;
+    }
     else
     {
         int done = pos;
@@ -219,7 +221,9 @@ bool chime::play(float volume, int & pos, float* buffer, int count)
             ++pos;
         }
         if (pos == DURATION * SEGMENT_COUNT * SAMPLE_COUNT)
+        {
             return false;
+        }
     }
     return true;
 }
