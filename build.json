@@ -1,0 +1,50 @@
+[
+	{
+		"name": "linux",
+		"packages":
+		[
+			"inkscape",
+			"imagemagick",
+			"libsdl2-dev",
+			"libsdl2-ttf-dev"
+		],
+		"build":
+		{
+			"parameters":
+			[
+			],
+			"test": true,
+			"pack": true	
+		}
+	},
+	{
+		"name": "windows",
+		"packages":
+		[
+			"inkscape",
+			"imagemagick"
+		],
+		"zips":
+		[
+			{
+				"source": "https://www.libsdl.org/release/SDL2-devel-2.0.10-mingw.tar.gz",
+				"path": "SDL2-2.0.10/x86_64-w64-mingw32",
+				"destination": "/usr/x86_64-w64-mingw32"
+			},
+			{
+				"source": "https://www.libsdl.org/projects/SDL_ttf/release/SDL2_ttf-devel-2.0.15-mingw.tar.gz",
+				"path": "SDL2_ttf-2.0.15/x86_64-w64-mingw32",
+				"destination": "/usr/x86_64-w64-mingw32"
+			}
+		],
+		"build":
+		{
+			"parameters":
+			[
+				"CMAKE_TOOLCHAIN_FILE=/usr/share/cmake/mingw-w64-x86_64.cmake"
+			],
+			"test": true,
+			"pack": true
+		}
+	}
+]

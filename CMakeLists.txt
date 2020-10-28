@@ -1,0 +1,40 @@
+cmake_minimum_required(VERSION 3.13)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+enable_testing()
+
+# Project Settings
+project("clock")
+set(CMAKE_PROJECT_DESCRIPTION "Digital Clock with Chimes and Alarms")
+set(CMAKE_PROJECT_HOMEPAGE_URL "https://www.shaidin.com/clock")
+set(CMAKE_PROJECT_VERSION_MAJOR 1)
+set(CMAKE_PROJECT_VERSION_MINOR 0)
+set(CMAKE_PROJECT_VERSION_PATCH 0)
+
+# Packaging
+set(CPACK_PACKAGE_VENDOR "virtualmatador")
+set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}")
+set(CPACK_PACKAGE_ICON "${CMAKE_CURRENT_BINARY_DIR}/icon/app.ico")
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(CPACK_GENERATOR "DEB")
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "${CPACK_PACKAGE_VENDOR}")
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "libsdl2-2.0-0 (>= 2.0.0), libsdl2-ttf-2.0-0 (>= 2.0.0)")
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    set(CPACK_GENERATOR "XCODE")
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    set(CPACK_GENERATOR "NSIS")
+    set(CPACK_PACKAGE_INSTALL_DIRECTORY "${CPACK_PACKAGE_VENDOR}\\\\${CMAKE_PROJECT_NAME}")
+    install(FILES "${CMAKE_FIND_ROOT_PATH}/bin/SDL2.dll" DESTINATION "bin")
+    install(FILES "${CMAKE_FIND_ROOT_PATH}/bin/SDL2_ttf.dll" DESTINATION "bin")
+    install(FILES "${CMAKE_FIND_ROOT_PATH}/bin/libfreetype-6.dll" DESTINATION "bin")
+    install(FILES "${CMAKE_FIND_ROOT_PATH}/bin/zlib1.dll" DESTINATION "bin")
+endif()
+include(CPack)
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	install(FILES "clock.desktop" DESTINATION "share/applications")
+endif()
+
+# Sub Directories
+add_subdirectory("res")
+add_subdirectory("src")
+add_subdirectory("icon")

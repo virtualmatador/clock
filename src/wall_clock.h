@@ -9,8 +9,8 @@
 
 #define TENCE_MIN 0.25f
 
-extern const unsigned char _binary_res_Font_ttf_end[];
-extern const unsigned char _binary_res_Font_ttf_start[];
+extern const unsigned char _binary_Font_ttf_end[];
+extern const unsigned char _binary_Font_ttf_start[];
 
 class wall_clock
 {

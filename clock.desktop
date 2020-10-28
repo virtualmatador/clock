@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Clock
+Exec=clock
+Icon=clock
+Type=Application
+Categories=Utility
+Terminal=false

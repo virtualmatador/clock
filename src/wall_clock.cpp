@@ -62,8 +62,8 @@ wall_clock::wall_clock()
 		throw "SDL_create_window";
 	if (TTF_Init() < 0)
 		throw "TTF_Init";
-	font_source_ = SDL_RWFromConstMem(_binary_res_Font_ttf_start,
-		_binary_res_Font_ttf_end - _binary_res_Font_ttf_start);
+	font_source_ = SDL_RWFromConstMem(_binary_Font_ttf_start,
+		_binary_Font_ttf_end - _binary_Font_ttf_start);
 	if (!font_source_)
 	{
 		throw "SDL_RWFromConstMem";
