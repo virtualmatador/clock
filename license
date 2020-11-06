@@ -1,0 +1,8 @@
+Responsibility:
+Any kind of behavior should be expected.
+
+Binaries:
+Everybody can read and execute.
+
+Source:
+Only the vendor can read or write.
