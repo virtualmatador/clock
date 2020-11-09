@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.13)
 set(BASE_DIR "hicolor")
 set(RESOLUTIONS 16 22 32 48 256 512)
 foreach(RESOLUTION ${RESOLUTIONS})
-    set(OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/${BASE_DIR}/${RESOLUTION}x${RESOLUTION}/apps")
+    set(OUTPUT_DIR "${BASE_DIR}/${RESOLUTION}x${RESOLUTION}/apps")
     set(OUTPUT_PNG "${OUTPUT_DIR}/${CMAKE_PROJECT_NAME}.png")
     add_custom_command(OUTPUT "${OUTPUT_PNG}"
         COMMAND ${CMAKE_COMMAND} -E make_directory "${OUTPUT_DIR}"
@@ -18,7 +18,7 @@ add_custom_command(OUTPUT "app.ico"
     COMMAND convert ${png_files} "app.ico" 
     DEPENDS ${png_targets})
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    install(FILES ${png_files} DESTINATION "share/icons/${OUTPUT_DIR}")
+    install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BASE_DIR}" DESTINATION "share/icons")
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     add_library("win_resource")
