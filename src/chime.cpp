@@ -1,6 +1,6 @@
-#include "chime.h"
-
 #include <cmath>
+
+#include "chime.h"
 
 const float chime::cent_[FREQUENCY_COUNT] =
 {

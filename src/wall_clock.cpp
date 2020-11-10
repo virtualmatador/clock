@@ -1,5 +1,3 @@
-#include "wall_clock.h"
-
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -11,7 +9,11 @@
 #include <set>
 #include <sstream>
 
-const char* wall_clock::weekdays_[] =
+#include <strings.h>
+
+#include "wall_clock.h"
+
+std::vector<const char*> wall_clock::weekdays_ =
 {
 	"SUNDAY",
 	"MONDAY",
@@ -45,7 +47,7 @@ wall_clock::wall_clock()
 	, pitch_{0}
 	, has_chime_{false}
 	, has_alarm_{false}
-	, next_alarm_{-1}
+	, next_alarm_{std::size_t(-1)}
 	, audio_device_{0}
 	, texture_second_{nullptr}
 	, texture_time_{nullptr}
@@ -231,7 +233,7 @@ void wall_clock::read_config()
 	brightness_ = 255;
 	has_chime_ = false;
 	has_alarm_ = false;
-	next_alarm_ = -1;
+	next_alarm_ = std::size_t(-1);
 	const char* home_directory = getenv("HOME");
 	if (home_directory)
 	{
@@ -239,75 +241,125 @@ void wall_clock::read_config()
 		conf_path += "/.clock.conf";
 		std::ifstream config_file(conf_path.c_str());
 		std::string config;
-		std::set<int> alarms;
+		std::set<std::size_t> alarms;
 		while (std::getline(config_file, config))
 		{
 			std::istringstream pair_stream { config };
-			std::string key, value;
-			pair_stream >> key >> value;
+			std::string key;
+			pair_stream >> key;
 			if (key == "alarm")
 			{
-				std::istringstream alarm_stream { value };
 				char colon;
 				int hour, minute;
-				if (alarm_stream >> hour >> colon >> minute)
+				if (pair_stream >> hour >> colon >> minute)
 				{
-					if (colon == ':' && hour < 24 && hour >= 0 && minute < 60 && minute >= 0)
+					if (colon == ':' && hour < 24 && hour >= 0 &&
+						minute < 60 && minute >= 0)
 					{
-						alarms.insert(hour * 60 + minute);
+						std::vector<std::size_t> alarm_weekdays;
+						std::string weekday;
+						while (pair_stream >> weekday)
+						{
+							if (strcasecmp(weekday.c_str(), "weekdays") == 0)
+							{
+								for (const auto wd : {1, 2, 3, 4, 5})
+								{
+									alarm_weekdays.push_back(wd);
+								}
+							}
+							else if (strcasecmp(weekday.c_str(), "weekend") == 0)
+							{
+								for (const auto wd : {0, 6})
+								{
+									alarm_weekdays.push_back(wd);
+								}
+							}
+							else
+							{
+								auto day = std::find_if(weekdays_.begin(), weekdays_.end(),
+									[&](const char* wd)
+								{
+									return strcasecmp(wd, weekday.c_str()) == 0;
+								});
+								if (day != weekdays_.end())
+								{
+									alarm_weekdays.push_back(day - weekdays_.begin());
+								}
+							}
+						}
+						if (alarm_weekdays.empty())
+						{
+							for (auto it = weekdays_.begin(); it != weekdays_.end(); ++it)
+							{
+								alarm_weekdays.push_back(it - weekdays_.begin());
+							}
+						}
+						for (const auto& alarm_weekday : alarm_weekdays)
+						{
+							alarms.insert((alarm_weekday * 24 + hour) * 60 + minute);
+						}
 					}
 				}
 			}
 			else if (key == "volume")
 			{
-				int volume = std::stoi(value);
-				if (volume >= 0 && volume <= 100)
+				int volume;
+				if (pair_stream >> volume && volume >= 0 && volume <= 100)
 				{
 					volume_ = volume;
 				}
 			}
 			else if (key == "brightness")
 			{
-				int brightness = std::stoi(value);
-				if (brightness >= 0 && brightness < 256)
+				int brightness;
+				if (pair_stream >> brightness && brightness >= 0 && brightness < 256)
 				{
 					brightness_ = brightness;
 				}
 			}
 			else if (key == "display")
 			{
-				int display = std::stoi(value);
-				if (display > 0 && display <= SDL_GetNumVideoDisplays())
+				int display;
+				if (pair_stream >> display && display > 0 && display <= SDL_GetNumVideoDisplays())
 				{
 					display_ =  display - 1;
 				}
 			}
 			else if (key == "chimes")
 			{
-				if (value == "true")
+				std::string chimes;
+				if (pair_stream >> chimes)
 				{
-					has_chime_ = true;
-				}
-				else if (value == "false")
-				{
-					has_chime_ = false;
+					if (chimes == "true")
+					{
+						has_chime_ = true;
+					}
+					else if (chimes == "false")
+					{
+						has_chime_ = false;
+					}
 				}
 			}
 			else if (key == "alarms")
 			{
-				if (value == "true")
+				std::string alarms;
+				if (pair_stream >> alarms)
 				{
-					has_alarm_ = true;
-				}
-				else if (value == "false")
-				{
-					has_alarm_ = false;
+					if (alarms == "true")
+					{
+						has_alarm_ = true;
+					}
+					else if (alarms == "false")
+					{
+						has_alarm_ = false;
+					}
 				}
 			}
 		}
 		bool will_alarm = false;
-		auto alarm = alarms.lower_bound(now_.tm_hour * 60 + now_.tm_min);
-		if (alarm != alarms.end() && *alarm == now_.tm_hour * 60 + now_.tm_min)
+		std::size_t alarm_time = (now_.tm_wday * 24 + now_.tm_hour) * 60 + now_.tm_min;
+		auto alarm = alarms.lower_bound(alarm_time);
+		if (alarm != alarms.end() && *alarm == alarm_time)
 		{
 			if (has_alarm_)
 			{
@@ -402,12 +454,16 @@ void wall_clock::redraw(const bool second_only)
 		sInfo
 			<< "\x5:" << (has_chime_ ? '\x7' : '\x8') << "  "
 			<< "\x6:" << (has_alarm_ ? '\x7' : '\x8') << " ";
-		if (next_alarm_ != -1)
+		if (next_alarm_ != std::size_t(-1))
 		{
-			sInfo << std::setfill('0') <<
-				std::setw(2) << next_alarm_ / 60 << ':' <<
+			sInfo <<
+				weekdays_[next_alarm_ / (60 * 24)][0] <<
+				weekdays_[next_alarm_ / (60 * 24)][1] <<
+				weekdays_[next_alarm_ / (60 * 24)][2] <<
+				" " << std::setfill('0') <<
+				std::setw(2) << next_alarm_ / 60 % 24 << ':' <<
 				std::setw(2) << next_alarm_ % 60;
-		}		
+		}
 		draw_text(&texture_options_, sInfo.str(), font_small_, color);
 	}
 	render_texture(texture_second_, width_ / 2 + digit_width_ * 2 + colon_width_, iY);

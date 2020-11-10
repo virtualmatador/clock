@@ -1,11 +1,12 @@
-#include "chime.h"
+#include <chrono>
+#include <list>
+#include <string>
+#include <vector>
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 
-#include <chrono>
-#include <list>
-#include <string>
+#include "chime.h"
 
 #define TENCE_MIN 0.25f
 
@@ -51,11 +52,11 @@ private:
 	int pitch_;
 	bool has_chime_;
 	bool has_alarm_;
-	int next_alarm_;
+	std::size_t next_alarm_;
 	std::list<STRIKE> strikes_;
 
 private:
-	static const char* weekdays_[];
+	static std::vector<const char*> weekdays_;
 
 public:
 	wall_clock();

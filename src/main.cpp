@@ -1,7 +1,6 @@
+#include <iostream>
 
 #include "wall_clock.h"
-
-#include <iostream>
 
 int main(int argc, char* argv[])
 {
