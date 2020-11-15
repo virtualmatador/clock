@@ -8,8 +8,6 @@
 
 #include "chime.h"
 
-#define TENCE_MIN 0.25f
-
 extern const unsigned char _binary_Font_ttf_end[];
 extern const unsigned char _binary_Font_ttf_start[];
 
@@ -70,6 +68,7 @@ private:
 	int handle_event(SDL_Event* event);
 	void tick();
 	void read_config();
+	float get_volume();
 	void redraw(const bool second_only);
 	void draw_text(SDL_Texture** texture, const std::string & text, TTF_Font* font, const SDL_Color & color);
 	int render_texture(SDL_Texture* texture, const int x, const int y);

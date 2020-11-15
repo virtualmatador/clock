@@ -43,7 +43,7 @@ wall_clock::wall_clock()
 	, height_{0}
 	, frame_time_{std::chrono::nanoseconds(0)}
 	, now_{0}
-	, tence_{TENCE_MIN}
+	, tence_{0}
 	, pitch_{0}
 	, has_chime_{false}
 	, has_alarm_{false}
@@ -386,6 +386,11 @@ void wall_clock::read_config()
 	}
 }
 
+float wall_clock::get_volume()
+{
+	return (volume_ / 100.0f) * tence_ * 0.5f;
+}
+
 void wall_clock::tick()
 {
 	static std::time_t tPre = std::chrono::system_clock::to_time_t(frame_time_ - std::chrono::minutes(1));
@@ -397,7 +402,7 @@ void wall_clock::tick()
 		if (pre.tm_min != now_.tm_min)
 		{
 			tence_ = std::max(0, 6 * 60 - std::abs(now_.tm_hour * 60 + now_.tm_min - 12 * 60))
-				/ 360.0f * (1.0f - TENCE_MIN) + TENCE_MIN;
+				/ 360.0f * 0.75f + 0.25f;
 			pitch_ = 12 - std::abs(now_.tm_hour - 12);
 			read_config();
 			if (SDL_GetWindowDisplayIndex(wnd_) != display_)
@@ -513,17 +518,17 @@ void wall_clock::bell_alarm()
 		for (int i = 0; i < 13; ++i)
 		{
 			strikes_.push_back(
-				{
-					-int((i * 4.0f + 0.0f) * SEGMENT_COUNT) * SAMPLE_COUNT,
-					(volume_ / 100.0f) * tence_ * (i + 1) / 13.0f * 1.0f,
-					i
-				});
+			{
+				-int((i * 4.0f + 0.0f) * SEGMENT_COUNT) * SAMPLE_COUNT,
+				get_volume() * (i + 1) / 13.0f,
+				i
+			});
 			strikes_.push_back(
-				{
-					-int((i * 4.0f + 1.0f) * SEGMENT_COUNT) * SAMPLE_COUNT,
-					(volume_ / 100.0f) * tence_ * (i + 1) / 13.0f * 0.5f,
-					i
-				});
+			{
+				-int((i * 4.0f + 1.0f) * SEGMENT_COUNT) * SAMPLE_COUNT,
+				get_volume() * (i + 1) / 26.0f,
+				i
+			});
 		}
 	}
 	SDL_UnlockAudioDevice(audio_device_);
@@ -543,11 +548,10 @@ void wall_clock::bell_chime()
 		for (int i = 0; i < count; ++i)
 		{
 			strikes_.push_back(
-				{
-					-int((i * 1.5f + 0.0f) * SEGMENT_COUNT) * SAMPLE_COUNT,
-					(volume_ / 100.0f) * tence_ * 0.75f,
-					pitch_
-				});
+			{
+				-int((i * 1.5f + 0.0f) * SEGMENT_COUNT) * SAMPLE_COUNT,
+				get_volume(), pitch_
+			});
 		}
 	}
 	SDL_UnlockAudioDevice(audio_device_);
@@ -564,8 +568,7 @@ void wall_clock::bell_test()
 			strikes_.push_back(
 			{
 				-int((i * 2.0f + 0.0f) * SEGMENT_COUNT) * SAMPLE_COUNT,
-				(volume_ / 100.0f) * tence_ * 0.75f,
-				pitch_
+				get_volume(), pitch_
 			});
 		}
 	}
@@ -607,62 +610,3 @@ void wall_clock::play_chimes(unsigned char* buffer, int length)
 	}
 	SDL_UnlockAudioDevice(audio_device_);
 }
-
-/*
-void wall_clock::test()
-{
-	float buffer[SAMPLE_COUNT];
-	now_ = new tm;
-	for (int i = 0; i < 24; ++i)
-	{
-		for (int j = 0; j < 60; ++j)
-		{
-			float s_max = 0;
-			now_.tm_hour = i;
-			now_.tm_min = j;
-			tence_ = std::max(0, 6 * 60 - std::abs(now_.tm_hour * 60 + now_.tm_min - 12 * 60))
-				/ 360.0f * (1.0f - TENCE_MIN) + TENCE_MIN;
-			pitch_ = 12 - std::abs(now_.tm_hour - 12);
-			bell_test();
-			while (strikes_.size())
-			{
-				play_chimes((unsigned char*)buffer, sizeof(buffer));
-				for (auto & f : buffer)
-				{
-					s_max = std::max(s_max, f);
-					s_max = std::max(s_max, -f);
-				}
-			}
-			bell_alarm();
-			while (strikes_.size())
-			{
-				play_chimes((unsigned char*)buffer, sizeof(buffer));
-				for (auto & f : buffer)
-				{
-					s_max = std::max(s_max, f);
-					s_max = std::max(s_max, -f);
-				}
-			}
-			if (now_.tm_min == 0)
-			{
-				bell_hour();
-				while (strikes_.size())
-				{
-					play_chimes((unsigned char*)buffer, sizeof(buffer));
-					for (auto & f : buffer)
-					{
-						s_max = std::max(s_max, f);
-						s_max = std::max(s_max, -f);
-					}
-				}
-			}
-			if (s_max >= 1.0)
-			{
-				throw "Max hit";
-			}
-			std::cout << i << ":" << j << " " << s_max << std::endl;
-		}
-	}
-	delete now_;
-}
-*/
