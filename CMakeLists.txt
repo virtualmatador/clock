@@ -3,12 +3,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 enable_testing()
 
 # Project Settings
-project("clock")
+project("clock" VERSION 1.1.0)
 set(CMAKE_PROJECT_DESCRIPTION "Digital Clock with Chimes and Alarms")
 set(CMAKE_PROJECT_HOMEPAGE_URL "https://www.shaidin.com/clock")
-set(CMAKE_PROJECT_VERSION_MAJOR 1)
-set(CMAKE_PROJECT_VERSION_MINOR 1)
-set(CMAKE_PROJECT_VERSION_PATCH 0)
 
 # Packaging
 set(CPACK_PACKAGE_VENDOR "virtualmatador")
