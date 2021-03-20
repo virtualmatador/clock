@@ -450,9 +450,9 @@ void wall_clock::redraw(const bool second_only)
 
 		std::stringstream sDate;
 		sDate << std::setfill('0') <<
-			now_.tm_year + 1900 << "/" <<
 			std::setw(2) << now_.tm_mon + 1 << "/" <<
-			std::setw(2) << now_.tm_mday;
+			std::setw(2) << now_.tm_mday <<	"/" <<
+			now_.tm_year + 1900;
 		draw_text(&texture_date_, sDate.str(), font_medium_, color);
 
 		std::stringstream sInfo;
