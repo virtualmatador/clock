@@ -61,9 +61,13 @@ wall_clock::wall_clock()
 	wnd_ = SDL_CreateWindow("wall_clock", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
 		0, 0, SDL_WINDOW_HIDDEN | SDL_WINDOW_BORDERLESS);
 	if (!wnd_)
+	{
 		throw "SDL_create_window";
+	}
 	if (TTF_Init() < 0)
+	{
 		throw "TTF_Init";
+	}
 	font_source_ = SDL_RWFromConstMem(_binary_Font_ttf_start,
 		_binary_Font_ttf_end - _binary_Font_ttf_start);
 	if (!font_source_)
@@ -98,15 +102,25 @@ wall_clock::~wall_clock()
 void wall_clock::set_window()
 {
 	SDL_Rect frame;
-	SDL_GetDisplayBounds(display_, &frame);
+	if (SDL_GetDisplayBounds(display_, &frame) != 0)
+	{
+		throw "SDL_GetDisplayBounds";
+	}
+	SDL_DestroyRenderer(renderer_);
 	SDL_HideWindow(wnd_);
-	SDL_SetWindowFullscreen(wnd_, 0);
+	if (SDL_SetWindowFullscreen(wnd_, 0) != 0)
+	{
+		throw "SDL_SetWindowFullscreen";
+	}	
 	SDL_SetWindowPosition(wnd_, frame.x, frame.y);
 	SDL_SetWindowSize(wnd_, frame.w, frame.h);
-	SDL_SetWindowFullscreen(wnd_, SDL_WINDOW_FULLSCREEN);
+	if (SDL_SetWindowFullscreen(wnd_, SDL_WINDOW_FULLSCREEN) != 0)
+	{
+		throw "SDL_SetWindowFullscreen";
+	}	
 	SDL_ShowWindow(wnd_);
-	SDL_DestroyRenderer(renderer_);
-	renderer_ = SDL_CreateRenderer(wnd_, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	renderer_ = SDL_CreateRenderer(wnd_, -1,
+		SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 	if (!renderer_)
 	{
 		throw "SDL_CreateRenderer";
