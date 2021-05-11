@@ -415,8 +415,8 @@ void wall_clock::tick()
 		auto pre = *std::localtime(&tPre);
 		if (pre.tm_min != now_.tm_min)
 		{
-			tence_ = std::max(0, 6 * 60 - std::abs(now_.tm_hour * 60 + now_.tm_min - 12 * 60))
-				/ 360.0f * 0.75f + 0.25f;
+			tence_ = std::max(0, 8 * 60 - std::abs(now_.tm_hour * 60 + now_.tm_min - 14 * 60))
+				/ static_cast<float>(8 * 60) * 0.85f + 0.15f;
 			pitch_ = 12 - std::abs(now_.tm_hour - 12);
 			read_config();
 			if (SDL_GetWindowDisplayIndex(wnd_) != display_)
