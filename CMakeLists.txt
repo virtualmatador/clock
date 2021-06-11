@@ -34,6 +34,13 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
         install(FILES "clock.desktop" DESTINATION "share/applications")
 endif()
 
+# conf file
+add_custom_target("conf" ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/.clock.conf")
+add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/.clock.conf"
+    COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/.clock.conf" "${CMAKE_CURRENT_BINARY_DIR}/.clock.conf"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/.clock.conf"
+)
+
 # Sub Directories
 add_subdirectory("res")
 add_subdirectory("icon")
