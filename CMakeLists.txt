@@ -2,12 +2,10 @@ cmake_minimum_required(VERSION 3.13)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 enable_testing()
 
-# Project Settings
 project("clock" VERSION 1.1.0)
 set(CMAKE_PROJECT_DESCRIPTION "Digital Clock with Chimes and Alarms")
 set(CMAKE_PROJECT_HOMEPAGE_URL "https://www.shaidin.com/clock")
 
-# Packaging
 set(CPACK_PACKAGE_VENDOR "virtualmatador")
 set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/license.txt")
@@ -34,14 +32,16 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
         install(FILES "clock.desktop" DESTINATION "share/applications")
 endif()
 
-# conf file
 add_custom_target("conf" ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/.clock.conf")
 add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/.clock.conf"
     COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/.clock.conf" "${CMAKE_CURRENT_BINARY_DIR}/.clock.conf"
     DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/.clock.conf"
 )
 
-# Sub Directories
+add_custom_target("version" ALL
+    COMMAND ${CMAKE_COMMAND} -E echo ${CMAKE_PROJECT_VERSION} > "${CMAKE_CURRENT_BINARY_DIR}/version.php"
+)
+
 add_subdirectory("res")
 add_subdirectory("icon")
 add_subdirectory("src")
