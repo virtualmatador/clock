@@ -8,8 +8,9 @@
 #include <numeric>
 #include <set>
 #include <sstream>
+#include <string>
 
-#include <strings.h>
+#include "resources.h"
 
 #include "wall_clock.h"
 
@@ -41,7 +42,7 @@ wall_clock::wall_clock()
 	, display_{0}
 	, width_{0}
 	, height_{0}
-	, frame_time_{std::chrono::nanoseconds(0)}
+	, frame_time_{std::chrono::system_clock::duration(0)}
 	, now_{0}
 	, tence_{0}
 	, pitch_{0}
@@ -68,8 +69,7 @@ wall_clock::wall_clock()
 	{
 		throw "TTF_Init";
 	}
-	font_source_ = SDL_RWFromConstMem(_binary_Font_ttf_start,
-		_binary_Font_ttf_end - _binary_Font_ttf_start);
+	font_source_ = SDL_RWFromConstMem(Font_ttf, Font_ttf_size);
 	if (!font_source_)
 	{
 		throw "SDL_RWFromConstMem";
@@ -187,9 +187,10 @@ void wall_clock::run()
 {
 	for(;;)
 	{
-		std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
-		long tmp = now.time_since_epoch().count() % 1000000000;
-		now -= std::chrono::nanoseconds(tmp);
+		auto now = std::chrono::system_clock::now();
+		auto tmp = now.time_since_epoch().count() %
+			std::chrono::system_clock::period::den;
+		now = now - std::chrono::system_clock::duration(tmp);
 		if (now != frame_time_)
 		{
 			frame_time_ = now;
@@ -198,7 +199,8 @@ void wall_clock::run()
 		else
 		{
 			SDL_Event event;
-			if (SDL_WaitEventTimeout(&event, (1000000000 - tmp) / 1000000) == 1)
+			if (SDL_WaitEventTimeout(&event, 1000 -
+				(tmp * 1000 / std::chrono::system_clock::period::den)) == 1)
 			{
 				if (handle_event(&event) < 0)
 				{
@@ -272,16 +274,20 @@ void wall_clock::read_config()
 					{
 						std::vector<std::size_t> alarm_weekdays;
 						std::string weekday;
+						std::transform<std::string::iterator,
+							std::string::iterator, int (*)(int)>(
+							weekday.begin(), weekday.end(),
+							weekday.begin(), std::toupper);
 						while (pair_stream >> weekday)
 						{
-							if (strcasecmp(weekday.c_str(), "weekdays") == 0)
+							if (weekday == "WEEKDAYS")
 							{
 								for (const auto wd : {1, 2, 3, 4, 5})
 								{
 									alarm_weekdays.push_back(wd);
 								}
 							}
-							else if (strcasecmp(weekday.c_str(), "weekend") == 0)
+							else if (weekday == "WEEKEND")
 							{
 								for (const auto wd : {0, 6})
 								{
@@ -290,27 +296,28 @@ void wall_clock::read_config()
 							}
 							else
 							{
-								auto day = std::find_if(weekdays_.begin(), weekdays_.end(),
-									[&](const char* wd)
-								{
-									return strcasecmp(wd, weekday.c_str()) == 0;
-								});
+								auto day = std::find(weekdays_.begin(),
+									weekdays_.end(), weekday);
 								if (day != weekdays_.end())
 								{
-									alarm_weekdays.push_back(day - weekdays_.begin());
+									alarm_weekdays.push_back(
+										day - weekdays_.begin());
 								}
 							}
 						}
 						if (alarm_weekdays.empty())
 						{
-							for (auto it = weekdays_.begin(); it != weekdays_.end(); ++it)
+							for (auto it = weekdays_.begin();
+								it != weekdays_.end(); ++it)
 							{
-								alarm_weekdays.push_back(it - weekdays_.begin());
+								alarm_weekdays.push_back(
+									it - weekdays_.begin());
 							}
 						}
 						for (const auto& alarm_weekday : alarm_weekdays)
 						{
-							alarms.insert((alarm_weekday * 24 + hour) * 60 + minute);
+							alarms.insert(
+								(alarm_weekday * 24 + hour) * 60 + minute);
 						}
 					}
 				}
@@ -326,7 +333,8 @@ void wall_clock::read_config()
 			else if (key == "brightness")
 			{
 				int brightness;
-				if (pair_stream >> brightness && brightness >= 0 && brightness < 256)
+				if (pair_stream >> brightness && brightness >= 0 &&
+					brightness < 256)
 				{
 					brightness_ = brightness;
 				}
@@ -334,7 +342,8 @@ void wall_clock::read_config()
 			else if (key == "display")
 			{
 				int display;
-				if (pair_stream >> display && display > 0 && display <= SDL_GetNumVideoDisplays())
+				if (pair_stream >> display && display > 0 && display <=
+					SDL_GetNumVideoDisplays())
 				{
 					display_ =  display - 1;
 				}
@@ -371,7 +380,8 @@ void wall_clock::read_config()
 			}
 		}
 		bool will_alarm = false;
-		std::size_t alarm_time = (now_.tm_wday * 24 + now_.tm_hour) * 60 + now_.tm_min;
+		std::size_t alarm_time = (now_.tm_wday * 24 + now_.tm_hour) * 60 +
+			now_.tm_min;
 		auto alarm = alarms.lower_bound(alarm_time);
 		if (alarm != alarms.end() && *alarm == alarm_time)
 		{
@@ -407,7 +417,8 @@ float wall_clock::get_volume()
 
 void wall_clock::tick()
 {
-	static std::time_t tPre = std::chrono::system_clock::to_time_t(frame_time_ - std::chrono::minutes(1));
+	static std::time_t tPre = std::chrono::system_clock::to_time_t(frame_time_ -
+		std::chrono::minutes(1));
 	std::time_t t = std::chrono::system_clock::to_time_t(frame_time_);
 	if (tPre != t)
 	{
@@ -415,8 +426,9 @@ void wall_clock::tick()
 		auto pre = *std::localtime(&tPre);
 		if (pre.tm_min != now_.tm_min)
 		{
-			tence_ = std::max(0, 8 * 60 - std::abs(now_.tm_hour * 60 + now_.tm_min - 14 * 60))
-				/ static_cast<float>(8 * 60) * 0.85f + 0.15f;
+			tence_ = std::max(0, 8 * 60 - std::abs(now_.tm_hour * 60 +
+				now_.tm_min - 14 * 60)) / static_cast<float>(
+				8 * 60) * 0.85f + 0.15f;
 			pitch_ = 12 - std::abs(now_.tm_hour - 12);
 			read_config();
 			if (SDL_GetWindowDisplayIndex(wnd_) != display_)

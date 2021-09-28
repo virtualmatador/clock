@@ -21,17 +21,8 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BASE_DIR}" DESTINATION "share/icons")
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    add_library("win_resource")
-    set_target_properties("win_resource" PROPERTIES LINKER_LANGUAGE CXX)
-    add_custom_command(OUTPUT "win_resource.o"
-        COMMAND ${CMAKE_COMMAND} -E echo "108 ICON \\\"app.ico\\\"" > "res.rc"
-        COMMAND "${CMAKE_RC_COMPILER}" -i "res.rc" -O coff -o "win_resource.o"
-        DEPENDS "app_icon")
-    target_sources("win_resource" PRIVATE "win_resource.o")
-    SET_SOURCE_FILES_PROPERTIES("win_resource.o"
-        PROPERTIES EXTERNAL_OBJECT true GENERATED true)
-    target_link_libraries("win_resource" INTERFACE
-        -Wl,--whole-archive
-        "${CMAKE_CURRENT_BINARY_DIR}/win_resource.o"
-        -Wl,--no-whole-archive)
+    add_library("win_resource" OBJECT)
+    target_sources("win_resource" PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/res.rc")
+    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/res.rc"
+        COMMAND ${CMAKE_COMMAND} -E echo "108 ICON \\\"app.ico\\\"" > "${CMAKE_CURRENT_BINARY_DIR}/res.rc")
 endif()

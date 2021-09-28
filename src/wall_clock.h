@@ -1,3 +1,6 @@
+#ifndef SRC_WALL_CLOCK_H
+#define SRC_WALL_CLOCK_H
+
 #include <chrono>
 #include <list>
 #include <string>
@@ -7,9 +10,6 @@
 #include <SDL2/SDL_ttf.h>
 
 #include "chime.h"
-
-extern const unsigned char _binary_Font_ttf_end[];
-extern const unsigned char _binary_Font_ttf_start[];
 
 class wall_clock
 {
@@ -78,3 +78,5 @@ private:
 	void silent();
 	void test_bell();
 };
+
+#endif // !SRC_WALL_CLOCK_H

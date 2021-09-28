@@ -1,3 +1,6 @@
+#ifndef SRC_CHIME_H
+#define SRC_CHIME_H
+
 #include <vector>
 
 #define SAMPLE_COUNT 1500
@@ -16,3 +19,5 @@ public:
     ~chime();
     bool play(float volume, int & pos, float* buffer, int count);
 };
+
+#endif // SRC_CHIME_H
