@@ -14,8 +14,6 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(CPACK_GENERATOR "DEB")
     set(CPACK_DEBIAN_PACKAGE_MAINTAINER "${CPACK_PACKAGE_VENDOR}")
     set(CPACK_DEBIAN_PACKAGE_DEPENDS "libsdl2-2.0-0 (>= 2.0.0), libsdl2-ttf-2.0-0 (>= 2.0.0)")
-elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    set(CPACK_GENERATOR "XCODE")
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     set(CPACK_GENERATOR "WIX")
     set(CPACK_WIX_UPGRADE_GUID "5A33D85D-5591-48ED-AD10-E7DB2B8552A7")
@@ -35,7 +33,7 @@ add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/.clock.conf"
 )
 
 add_custom_target("version" ALL
-    COMMAND ${CMAKE_COMMAND} -E echo ${CMAKE_PROJECT_VERSION} > "${CMAKE_CURRENT_BINARY_DIR}/version.php"
+    COMMAND ${CMAKE_COMMAND} -E echo ${CMAKE_PROJECT_VERSION} > "${CMAKE_CURRENT_BINARY_DIR}/version.txt"
 )
 
 add_subdirectory("res")

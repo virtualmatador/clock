@@ -10,7 +10,15 @@ else()
 endif()
 add_executable("${CMAKE_PROJECT_NAME}" ${exe_type} ${sources})
 set_property(TARGET "${CMAKE_PROJECT_NAME}" PROPERTY CXX_STANDARD 17)
-if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_compile_definitions("${CMAKE_PROJECT_NAME}" PRIVATE
+        HOME="HOME"
+    )
+    target_link_libraries("${CMAKE_PROJECT_NAME}" pthread)
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    target_compile_definitions("${CMAKE_PROJECT_NAME}" PRIVATE
+        HOME="USERPROFILE"
+    )
     target_link_libraries("${CMAKE_PROJECT_NAME}" win_resource)
     file(TO_CMAKE_PATH "$ENV{VCToolsInstallDir}" bin_dir)
     set(bin_dir "${bin_dir}/lib/x64")
@@ -18,8 +26,6 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     install(FILES "${bin_dir}/SDL2_ttf.dll" DESTINATION "bin")
     install(FILES "${bin_dir}/zlib1.dll" DESTINATION "bin")
     install(FILES "${bin_dir}/libfreetype-6.dll" DESTINATION "bin")
-else()
-    target_link_libraries("${CMAKE_PROJECT_NAME}" pthread)
 endif()
 target_link_libraries("${CMAKE_PROJECT_NAME}"
     resource SDL2main SDL2 SDL2_ttf)

@@ -250,7 +250,7 @@ void wall_clock::read_config()
 	has_chime_ = false;
 	has_alarm_ = false;
 	next_alarm_ = std::size_t(-1);
-	const char* home_directory = getenv("HOME");
+	const char* home_directory = getenv(HOME);
 	if (home_directory)
 	{
 		std::string conf_path { home_directory };
