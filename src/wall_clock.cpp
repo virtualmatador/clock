@@ -107,7 +107,6 @@ void wall_clock::set_window()
 		throw "SDL_GetDisplayBounds";
 	}
 	SDL_DestroyRenderer(renderer_);
-	SDL_HideWindow(wnd_);
 	if (SDL_SetWindowFullscreen(wnd_, 0) != 0)
 	{
 		throw "SDL_SetWindowFullscreen";
@@ -118,7 +117,6 @@ void wall_clock::set_window()
 	{
 		throw "SDL_SetWindowFullscreen";
 	}	
-	SDL_ShowWindow(wnd_);
 	renderer_ = SDL_CreateRenderer(wnd_, -1,
 		SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 	if (!renderer_)
