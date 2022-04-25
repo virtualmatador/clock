@@ -24,4 +24,5 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     target_sources("win_resource" PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/res.rc")
     add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/res.rc"
         COMMAND ${CMAKE_COMMAND} -E echo "108 ICON \\\"app.ico\\\"" > "${CMAKE_CURRENT_BINARY_DIR}/res.rc")
+    add_dependencies("win_resource" "app_icon")
 endif()
