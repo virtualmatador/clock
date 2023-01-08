@@ -272,12 +272,12 @@ void wall_clock::read_config()
 					{
 						std::vector<std::size_t> alarm_weekdays;
 						std::string weekday;
-						std::transform<std::string::iterator,
-							std::string::iterator, int (*)(int)>(
-							weekday.begin(), weekday.end(),
-							weekday.begin(), std::toupper);
 						while (pair_stream >> weekday)
 						{
+							std::transform<std::string::iterator,
+								std::string::iterator, int (*)(int)>(
+								weekday.begin(), weekday.end(),
+								weekday.begin(), std::toupper);
 							if (weekday == "WEEKDAYS")
 							{
 								for (const auto wd : {1, 2, 3, 4, 5})
