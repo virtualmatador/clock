@@ -38,7 +38,8 @@ wall_clock::wall_clock()
 	, font_medium_{nullptr}
 	, font_small_{nullptr}
 	, volume_{100}
-	, brightness_{255}
+	, text_color_{255, 255, 255, 255}
+	, background_{0, 0, 0, 255}
 	, display_{0}
 	, width_{0}
 	, height_{0}
@@ -46,6 +47,7 @@ wall_clock::wall_clock()
 	, now_{0}
 	, tence_{0}
 	, pitch_{0}
+	, dim_{true}
 	, has_chime_{false}
 	, has_alarm_{false}
 	, next_alarm_{std::size_t(-1)}
@@ -244,7 +246,9 @@ int wall_clock::handle_event(SDL_Event* event)
 void wall_clock::read_config()
 {
 	volume_ = 100;
-	brightness_ = 255;
+	text_color_ = {255, 255, 255, 255};
+	background_ = {0, 0, 0, 255};
+	dim_ = true;
 	has_chime_ = false;
 	has_alarm_ = false;
 	next_alarm_ = std::size_t(-1);
@@ -328,13 +332,24 @@ void wall_clock::read_config()
 					volume_ = volume;
 				}
 			}
-			else if (key == "brightness")
+			else if (key == "color")
 			{
-				int brightness;
-				if (pair_stream >> brightness && brightness >= 0 &&
-					brightness < 256)
+				int r, g, b;
+				if (pair_stream >> r >> g >> b)
 				{
-					brightness_ = brightness;
+					text_color_.r = r;
+					text_color_.g = g;
+					text_color_.b = b;
+				}
+			}
+			else if (key == "background")
+			{
+				int r, g, b;
+				if (pair_stream >> r >> g >> b)
+				{
+					background_.r = r;
+					background_.g = g;
+					background_.b = b;
 				}
 			}
 			else if (key == "display")
@@ -344,6 +359,21 @@ void wall_clock::read_config()
 					SDL_GetNumVideoDisplays())
 				{
 					display_ =  display - 1;
+				}
+			}
+			else if (key == "dim")
+			{
+				std::string dim;
+				if (pair_stream >> dim)
+				{
+					if (dim == "true")
+					{
+						dim_ = true;
+					}
+					else if (dim == "false")
+					{
+						dim_ = false;
+					}
 				}
 			}
 			else if (key == "chimes")
@@ -445,39 +475,35 @@ void wall_clock::tick()
 
 void wall_clock::redraw(const bool second_only)
 {
-	int iY = 0;
-	if (SDL_RenderClear(renderer_) != 0)
+	text_color_.a = 255 * (dim_ ? tence_ : 1.0);
+	background_.a = 255 * (dim_ ? tence_ : 1.0);
+	if (SDL_SetRenderDrawColor(renderer_,
+		background_.r, background_.g, background_.b, background_.a) != 0 ||
+		SDL_RenderClear(renderer_) != 0)
 	{
-		throw "SDL_RenderClear";
+		throw "Clear Background";
 	}
-	SDL_Color color
-	{
-		(unsigned char)(brightness_ * tence_),
-		(unsigned char)(brightness_ * tence_),
-		(unsigned char)(brightness_ * tence_),
-	};
-
 	std::stringstream sSecond;
 	sSecond << std::setfill('0') << std::setw(2) << now_.tm_sec;
-	draw_text(&texture_second_, sSecond.str(), font_big_, color);
+	draw_text(&texture_second_, sSecond.str(), font_big_, text_color_);
 	if (!second_only)
 	{
 		std::stringstream sTime;
 		sTime << std::setfill('0') <<
 			std::setw(2) << now_.tm_hour << ":" <<
 			std::setw(2) << now_.tm_min << ":";
-		draw_text(&texture_time_, sTime.str(), font_big_, color);
+		draw_text(&texture_time_, sTime.str(), font_big_, text_color_);
 
 		std::stringstream sDay;
 		sDay << wall_clock::weekdays_[now_.tm_wday];
-		draw_text(&texture_day_, sDay.str(), font_medium_, color);
+		draw_text(&texture_day_, sDay.str(), font_medium_, text_color_);
 
 		std::stringstream sDate;
 		sDate << std::setfill('0') <<
 			std::setw(2) << now_.tm_mon + 1 << "/" <<
 			std::setw(2) << now_.tm_mday <<	"/" <<
 			now_.tm_year + 1900;
-		draw_text(&texture_date_, sDate.str(), font_medium_, color);
+		draw_text(&texture_date_, sDate.str(), font_medium_, text_color_);
 
 		std::stringstream sInfo;
 		sInfo
@@ -493,8 +519,9 @@ void wall_clock::redraw(const bool second_only)
 				std::setw(2) << next_alarm_ / 60 % 24 << ':' <<
 				std::setw(2) << next_alarm_ % 60;
 		}
-		draw_text(&texture_options_, sInfo.str(), font_small_, color);
+		draw_text(&texture_options_, sInfo.str(), font_small_, text_color_);
 	}
+	int iY = 0;
 	render_texture(texture_second_, width_ / 2 + digit_width_ * 2 + colon_width_, iY);
 	iY += render_texture(texture_time_, width_ / 2 - digit_width_, iY);
 	iY += render_texture(texture_day_, width_ / 2, iY);

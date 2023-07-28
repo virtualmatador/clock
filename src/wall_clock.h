@@ -37,7 +37,8 @@ private:
 	SDL_Texture* texture_date_;
 	SDL_Texture* texture_options_;
 	int volume_;
-	int brightness_;
+	SDL_Color text_color_;
+	SDL_Color background_;
 	int display_;
 	int width_;
 	int height_;
@@ -48,6 +49,7 @@ private:
 	std::vector<chime> chimes_;
 	float tence_;
 	int pitch_;
+	bool dim_;
 	bool has_chime_;
 	bool has_alarm_;
 	std::size_t next_alarm_;
