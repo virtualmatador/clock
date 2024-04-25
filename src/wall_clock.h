@@ -52,6 +52,7 @@ private:
 	bool dim_;
 	bool has_chime_;
 	bool has_alarm_;
+	std::string date_;
 	std::size_t next_alarm_;
 	std::list<STRIKE> strikes_;
 

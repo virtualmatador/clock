@@ -50,6 +50,7 @@ wall_clock::wall_clock()
 	, dim_{true}
 	, has_chime_{false}
 	, has_alarm_{false}
+	, date_{"%m/%d/%Y"}
 	, next_alarm_{std::size_t(-1)}
 	, audio_device_{0}
 	, texture_second_{nullptr}
@@ -406,6 +407,17 @@ void wall_clock::read_config()
 					}
 				}
 			}
+			else if (key == "date")
+			{
+				std::string date;
+				if (pair_stream >> date)
+				{
+					if (date.size() <= 10)
+					{
+						date_ = date;
+					}
+				}
+			}
 		}
 		bool will_alarm = false;
 		std::size_t alarm_time = (now_.tm_wday * 24 + now_.tm_hour) * 60 +
@@ -499,10 +511,7 @@ void wall_clock::redraw(const bool second_only)
 		draw_text(&texture_day_, sDay.str(), font_medium_, text_color_);
 
 		std::stringstream sDate;
-		sDate << std::setfill('0') <<
-			std::setw(2) << now_.tm_mon + 1 << "/" <<
-			std::setw(2) << now_.tm_mday <<	"/" <<
-			now_.tm_year + 1900;
+		sDate << std::put_time(&now_, date_.c_str());
 		draw_text(&texture_date_, sDate.str(), font_medium_, text_color_);
 
 		std::stringstream sInfo;
