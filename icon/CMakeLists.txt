@@ -19,7 +19,7 @@ add_custom_command(OUTPUT "app.ico"
     DEPENDS ${png_targets})
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BASE_DIR}" DESTINATION "share/icons")
-elseif (CMAKE_SYSTEM_NAME STREQUAL "CYGWIN")
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     add_library("win_resource" OBJECT)
     target_sources("win_resource" PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/res.rc")
     add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/res.rc"

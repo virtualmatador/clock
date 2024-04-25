@@ -512,7 +512,9 @@ void wall_clock::redraw(const bool second_only)
 
 		std::stringstream sDate;
 		sDate << std::put_time(&now_, date_.c_str());
-		draw_text(&texture_date_, sDate.str(), font_medium_, text_color_);
+		auto date = sDate.str();
+		std::transform(date.begin(), date.end(), date.begin(), ::toupper);
+		draw_text(&texture_date_, date, font_medium_, text_color_);
 
 		std::stringstream sInfo;
 		sInfo

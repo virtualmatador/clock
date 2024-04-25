@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 enable_testing()
 
-project("clock" VERSION 2.0.0)
+project("clock" VERSION 2.1.0)
 set(CMAKE_PROJECT_DESCRIPTION "Digital Clock with Chimes and Alarms")
 set(CMAKE_PROJECT_HOMEPAGE_URL "https://www.shaidin.com/clock")
 
@@ -16,7 +16,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(CPACK_DEBIAN_PACKAGE_MAINTAINER "${CPACK_PACKAGE_VENDOR}")
     set(CPACK_DEBIAN_PACKAGE_DEPENDS
         "libsdl2-2.0-0 (>= 2.0.0), libsdl2-ttf-2.0-0 (>= 2.0.0)")
-elseif (CMAKE_SYSTEM_NAME STREQUAL "CYGWIN")
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     set(CPACK_GENERATOR "WIX")
     set(CPACK_WIX_UPGRADE_GUID "5A33D85D-5591-48ED-AD10-E7DB2B8552A7")
     set(CPACK_PACKAGE_INSTALL_DIRECTORY
