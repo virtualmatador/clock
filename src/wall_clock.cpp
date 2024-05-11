@@ -54,10 +54,16 @@ wall_clock::wall_clock()
 	, next_alarm_{std::size_t(-1)}
 	, audio_device_{0}
 	, texture_second_{nullptr}
+	, size_second_{0, 0}
 	, texture_time_{nullptr}
+	, size_time_{0, 0}
 	, texture_day_{nullptr}
+	, size_day_{0, 0}
 	, texture_date_{nullptr}
+	, size_date_{0, 0}
 	, texture_options_{nullptr}
+	, size_options_{0, 0}
+	, total_height_{0}
 {
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
 		throw "SDL_INIT";
@@ -130,26 +136,34 @@ void wall_clock::set_window()
 	{
 		throw "SDL_GetRendererOutputSize";
 	}
-	int text_width = width_;
-	do
+	SDL_RWseek(font_source_, 0, RW_SEEK_SET);
+	TTF_CloseFont(font_big_);
+	font_big_ = TTF_OpenFontRW(font_source_, false, height_ * 4 / 9);
+	if (!font_big_)
 	{
-		SDL_RWseek(font_source_, 0, RW_SEEK_SET);
-		TTF_CloseFont(font_big_);
-		font_big_ = TTF_OpenFontRW(font_source_, false, width_ * height_ * 4 / 9 / text_width);
-		if (!font_big_)
-		{
-			throw "TTF_OpenFont";
-		}
-		if (TTF_SizeText(font_big_, "0", &digit_width_, nullptr) < 0 ||
-			TTF_SizeText(font_big_, ":", &colon_width_, nullptr) < 0)
-		{
-			throw "TTF_SizeText";
-		}
-		text_width = digit_width_ * 6 + colon_width_ * 2;
-	} while (text_width > width_);
+		throw "TTF_OpenFont";
+	}
+	if (TTF_SizeText(font_big_, "0", &digit_width_, nullptr) < 0 ||
+		TTF_SizeText(font_big_, ":", &colon_width_, nullptr) < 0)
+	{
+		throw "TTF_SizeText";
+	}
+	auto text_width = digit_width_ * 6 + colon_width_ * 2;
 	if (text_width < width_)
 	{
 		text_width = width_;
+	}
+	SDL_RWseek(font_source_, 0, RW_SEEK_SET);
+	TTF_CloseFont(font_big_);
+	font_big_ = TTF_OpenFontRW(font_source_, false, width_ * height_ * 4 / 9 / text_width);
+	if (!font_big_)
+	{
+		throw "TTF_OpenFont";
+	}
+	if (TTF_SizeText(font_big_, "0", &digit_width_, nullptr) < 0 ||
+		TTF_SizeText(font_big_, ":", &colon_width_, nullptr) < 0)
+	{
+		throw "TTF_SizeText";
 	}
 	SDL_RWseek(font_source_, 0, RW_SEEK_SET);
 	TTF_CloseFont(font_medium_);
@@ -497,24 +511,29 @@ void wall_clock::redraw(const bool second_only)
 	}
 	std::stringstream sSecond;
 	sSecond << std::setfill('0') << std::setw(2) << now_.tm_sec;
-	draw_text(&texture_second_, sSecond.str(), font_big_, text_color_);
+	draw_text(&texture_second_, &size_second_, sSecond.str(), font_big_, text_color_);
 	if (!second_only)
 	{
+		total_height_ = 0;
+
 		std::stringstream sTime;
 		sTime << std::setfill('0') <<
 			std::setw(2) << now_.tm_hour << ":" <<
 			std::setw(2) << now_.tm_min << ":";
-		draw_text(&texture_time_, sTime.str(), font_big_, text_color_);
+		draw_text(&texture_time_, &size_time_, sTime.str(), font_big_, text_color_);
+		total_height_ += size_time_.y;
 
 		std::stringstream sDay;
 		sDay << wall_clock::weekdays_[now_.tm_wday];
-		draw_text(&texture_day_, sDay.str(), font_medium_, text_color_);
+		draw_text(&texture_day_, &size_day_, sDay.str(), font_medium_, text_color_);
+		total_height_ += size_day_.y;
 
 		std::stringstream sDate;
 		sDate << std::put_time(&now_, date_.c_str());
 		auto date = sDate.str();
 		std::transform(date.begin(), date.end(), date.begin(), ::toupper);
-		draw_text(&texture_date_, date, font_medium_, text_color_);
+		draw_text(&texture_date_, &size_date_, date, font_medium_, text_color_);
+		total_height_ += size_date_.y;
 
 		std::stringstream sInfo;
 		sInfo
@@ -530,18 +549,22 @@ void wall_clock::redraw(const bool second_only)
 				std::setw(2) << next_alarm_ / 60 % 24 << ':' <<
 				std::setw(2) << next_alarm_ % 60;
 		}
-		draw_text(&texture_options_, sInfo.str(), font_small_, text_color_);
+		draw_text(&texture_options_, &size_options_, sInfo.str(), font_small_, text_color_);
+		total_height_ += size_options_.y;
 	}
-	int iY = 0;
-	render_texture(texture_second_, width_ / 2 + digit_width_ * 2 + colon_width_, iY);
-	iY += render_texture(texture_time_, width_ / 2 - digit_width_, iY);
-	iY += render_texture(texture_day_, width_ / 2, iY);
-	iY += render_texture(texture_date_, width_ / 2, iY);
-	iY += render_texture(texture_options_, width_ / 2, iY);
+	int iY = (height_ - total_height_) / 5;
+	render_texture(texture_second_, &size_second_, width_ / 2 + digit_width_ * 2 + colon_width_, iY);
+	render_texture(texture_time_, &size_time_, width_ / 2 - digit_width_, iY);
+	iY += size_time_.y + (height_ - total_height_) / 5;
+	render_texture(texture_day_, &size_day_, width_ / 2, iY);
+	iY += size_day_.y + (height_ - total_height_) / 5;
+	render_texture(texture_date_, &size_date_, width_ / 2, iY);
+	iY += size_date_.y + (height_ - total_height_) / 5;
+	render_texture(texture_options_, &size_options_, width_ / 2, iY);
 	SDL_RenderPresent(renderer_);
 }
 
-void wall_clock::draw_text(SDL_Texture** texture, const std::string & text, TTF_Font* font, const SDL_Color & color)
+void wall_clock::draw_text(SDL_Texture** texture, SDL_Point* size, const std::string & text, TTF_Font* font, const SDL_Color & color)
 {
 	SDL_Surface* surface = TTF_RenderText_Solid(font, text.c_str(), color);
 	if (!surface)
@@ -554,22 +577,20 @@ void wall_clock::draw_text(SDL_Texture** texture, const std::string & text, TTF_
 	{
 		throw "SDL_CreateTextureFromSurface";
 	}
-	SDL_FreeSurface(surface);
-}
-
-int wall_clock::render_texture(SDL_Texture* texture, const int x, const int y)
-{
-	int w, h;
-	if (SDL_QueryTexture(texture, nullptr, nullptr, &w, &h) != 0)
+	if (SDL_QueryTexture(*texture, nullptr, nullptr, &size->x, &size->y) != 0)
 	{
 		throw "SDL_QueryTexture";
 	}
-	SDL_Rect dest{x - w / 2, y, w, h};
+	SDL_FreeSurface(surface);
+}
+
+void wall_clock::render_texture(SDL_Texture* texture, const SDL_Point* size, const int x, const int y)
+{
+	SDL_Rect dest{x - size->x / 2, y, size->x, size->y};
 	if (SDL_RenderCopy(renderer_, texture, nullptr, &dest) != 0)
 	{
 		throw "SDL_RenderCopy";
 	}
-	return h;
 }
 
 void wall_clock::bell_alarm()

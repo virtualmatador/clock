@@ -32,10 +32,16 @@ private:
 	TTF_Font* font_medium_;
 	TTF_Font* font_small_;
 	SDL_Texture* texture_second_;
+	SDL_Point size_second_;
 	SDL_Texture* texture_time_;
+	SDL_Point size_time_;
 	SDL_Texture* texture_day_;
+	SDL_Point size_day_;
 	SDL_Texture* texture_date_;
+	SDL_Point size_date_;
 	SDL_Texture* texture_options_;
+	SDL_Point size_options_;
+	int total_height_;
 	int volume_;
 	SDL_Color text_color_;
 	SDL_Color background_;
@@ -73,8 +79,8 @@ private:
 	void read_config();
 	float get_volume();
 	void redraw(const bool second_only);
-	void draw_text(SDL_Texture** texture, const std::string & text, TTF_Font* font, const SDL_Color & color);
-	int render_texture(SDL_Texture* texture, const int x, const int y);
+	void draw_text(SDL_Texture** texture, SDL_Point* size, const std::string & text, TTF_Font* font, const SDL_Color & color);
+	void render_texture(SDL_Texture* texture, const SDL_Point* size, const int x, const int y);
 	void bell_alarm();
 	void bell_chime();
 	void bell_test();
