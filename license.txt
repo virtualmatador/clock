@@ -5,4 +5,4 @@ Binaries:
 Everybody can read and execute.
 
 Source:
-Only the vendor can read or write.
+Everybody can read or copy.
