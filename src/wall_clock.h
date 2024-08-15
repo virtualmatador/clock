@@ -35,6 +35,8 @@ private:
 	SDL_Point size_second_;
 	SDL_Texture* texture_time_;
 	SDL_Point size_time_;
+	SDL_Texture* texture_ampm_;
+	SDL_Point size_ampm_;
 	SDL_Texture* texture_day_;
 	SDL_Point size_day_;
 	SDL_Texture* texture_date_;
@@ -42,23 +44,27 @@ private:
 	SDL_Texture* texture_options_;
 	SDL_Point size_options_;
 	int total_height_;
-	int volume_;
-	SDL_Color text_color_;
-	SDL_Color background_;
 	int display_;
 	int width_;
 	int height_;
 	int digit_width_;
 	int colon_width_;
+	int ampm_width_;
+	int time_width_;
 
 	SDL_AudioDeviceID audio_device_;
 	std::vector<chime> chimes_;
 	float tence_;
 	int pitch_;
+	int volume_;
+	SDL_Color text_color_;
+	SDL_Color background_;
 	bool dim_;
 	bool has_chime_;
 	bool has_alarm_;
 	std::string date_;
+	bool time_24_;
+	bool seconds_;
 	std::size_t next_alarm_;
 	std::list<STRIKE> strikes_;
 
@@ -73,7 +79,11 @@ public:
 
 private:
 	void set_window();
+	void set_fonts();
+	void reset_big_font();
+	void set_big_font();
 	void create_audio();
+	int calculate_time_width();
 	int handle_event(SDL_Event* event);
 	void tick();
 	void read_config();
