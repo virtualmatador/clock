@@ -51,12 +51,13 @@ class wall_clock {
 
   SDL_AudioDeviceID audio_device_;
   std::vector<chime> chimes_;
-  float tence_;
+  float tense_;
   int pitch_;
   int volume_;
   SDL_Color text_color_;
   SDL_Color background_;
   bool dim_;
+  bool whisper_;
   bool has_chime_;
   bool has_alarm_;
   std::string date_;
