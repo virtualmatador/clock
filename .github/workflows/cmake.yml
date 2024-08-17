@@ -23,26 +23,20 @@ jobs:
         - aarch64-linux-gnu-gcc
         - cl
         include:
-          - os: windows-latest
-            c_compiler: cl
-            cpp_compiler: cl
-          - os: ubuntu-latest
-            c_compiler: gcc
-            cpp_compiler: g++
-          - os: ubuntu-latest
-            c_compiler: aarch64-linux-gnu-gcc
-            cpp_compiler: aarch64-linux-gnu-g++
+        - os: ubuntu-latest
+          c_compiler: gcc
+          cpp_compiler: g++
         exclude:
-          - os: windows-latest
-            c_compiler: gcc
-          - os: windows-latest
-            c_compiler: aarch64-linux-gnu-gcc
-          - os: windows-latest
-            c_compiler: cl
-          - os: ubuntu-latest
-            c_compiler: cl
-          - os: ubuntu-latest
-            c_compiler: aarch64-linux-gnu-gcc
+        - os: windows-latest
+          c_compiler: gcc
+        - os: windows-latest
+          c_compiler: aarch64-linux-gnu-gcc
+        - os: windows-latest
+          c_compiler: cl
+        - os: ubuntu-latest
+          c_compiler: cl
+        - os: ubuntu-latest
+          c_compiler: aarch64-linux-gnu-gcc
 
     steps:
     - uses: actions/checkout@v4

@@ -473,8 +473,9 @@ void wall_clock::redraw(const bool second_only) {
 
     std::stringstream sTime;
     sTime << std::setfill('0') << std::setw(2)
-          << (time_24_ ? now_.tm_hour : now_.tm_hour % 12) << ":"
-          << std::setfill('0') << std::setw(2) << now_.tm_min;
+          << (time_24_ ? now_.tm_hour
+                       : (now_.tm_hour % 12 != 0 ? now_.tm_hour % 12 : 12))
+          << ":" << std::setfill('0') << std::setw(2) << now_.tm_min;
     draw_text(&texture_time_, &size_time_, sTime.str(), font_big_, text_color_);
     total_height_ += size_time_.y;
 
