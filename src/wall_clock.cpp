@@ -39,12 +39,13 @@ wall_clock::wall_clock()
       time_width_{0},
       frame_time_{std::chrono::system_clock::duration(0)},
       now_{0},
-      tence_{0},
+      tense_{0},
       pitch_{0},
       volume_{0},
       text_color_{0, 0, 0, 0},
       background_{0, 0, 0, 0},
       dim_{true},
+      whisper_{true},
       has_chime_{false},
       has_alarm_{false},
       date_{},
@@ -264,6 +265,7 @@ void wall_clock::read_config() {
   text_color_ = {255, 255, 255, 255};
   background_ = {0, 0, 0, 255};
   dim_ = true;
+  whisper_ = true;
   has_chime_ = false;
   has_alarm_ = false;
   date_ = "%m/%d/%Y";
@@ -353,6 +355,15 @@ void wall_clock::read_config() {
             dim_ = false;
           }
         }
+      } else if (key == "whisper") {
+        std::string whisper;
+        if (pair_stream >> whisper) {
+          if (whisper == "true") {
+            whisper_ = true;
+          } else if (whisper == "false") {
+            whisper_ = false;
+          }
+        }
       } else if (key == "chimes") {
         std::string chimes;
         if (pair_stream >> chimes) {
@@ -423,7 +434,9 @@ void wall_clock::read_config() {
   }
 }
 
-float wall_clock::get_volume() { return (volume_ / 100.0f) * tence_ * 0.5f; }
+float wall_clock::get_volume() {
+  return (volume_ / 100.0f) * (whisper_ ? tense_ : 1.0f) * 0.5f;
+}
 
 void wall_clock::tick() {
   static std::time_t tPre = std::chrono::system_clock::to_time_t(
@@ -433,7 +446,7 @@ void wall_clock::tick() {
     now_ = *std::localtime(&t);
     auto pre = *std::localtime(&tPre);
     if (pre.tm_min != now_.tm_min) {
-      tence_ = std::max(0, 8 * 60 - std::abs(now_.tm_hour * 60 + now_.tm_min -
+      tense_ = std::max(0, 8 * 60 - std::abs(now_.tm_hour * 60 + now_.tm_min -
                                              14 * 60)) /
                    static_cast<float>(8 * 60) * 0.85f +
                0.15f;
@@ -455,8 +468,8 @@ void wall_clock::tick() {
 }
 
 void wall_clock::redraw(const bool second_only) {
-  text_color_.a = 255 * (dim_ ? tence_ : 1.0);
-  background_.a = 255 * (dim_ ? tence_ : 1.0);
+  text_color_.a = 255 * (dim_ ? tense_ : 1.0);
+  background_.a = 255 * (dim_ ? tense_ : 1.0);
   if (seconds_) {
     std::stringstream sSecond;
     sSecond << ":" << std::setfill('0') << std::setw(2) << now_.tm_sec;
