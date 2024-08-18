@@ -214,6 +214,7 @@ void wall_clock::set_config_handlers() {
                minute >= 0) {
              std::vector<std::size_t> alarm_weekdays;
              std::string weekday;
+             bool inactive = false;
              while (is >> weekday) {
                std::transform<std::string::iterator, std::string::iterator,
                               int (*)(int)>(weekday.begin(), weekday.end(),
@@ -226,6 +227,10 @@ void wall_clock::set_config_handlers() {
                  for (const auto wd : {0, 6}) {
                    alarm_weekdays.push_back(wd);
                  }
+               } else if (weekday == "NEVER") {
+                 alarm_weekdays.clear();
+                 inactive = true;
+                 break;
                } else {
                  auto day =
                      std::find(weekdays_.begin(), weekdays_.end(), weekday);
@@ -234,7 +239,7 @@ void wall_clock::set_config_handlers() {
                  }
                }
              }
-             if (alarm_weekdays.empty()) {
+             if (alarm_weekdays.empty() && !inactive) {
                for (auto it = weekdays_.begin(); it != weekdays_.end(); ++it) {
                  alarm_weekdays.push_back(it - weekdays_.begin());
                }
