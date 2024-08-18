@@ -6,18 +6,11 @@
 #include <ctime>
 #include <fstream>
 #include <iomanip>
-#include <iostream>
 #include <numeric>
-#include <set>
 #include <sstream>
 #include <string>
 
 #include "resources.h"
-
-std::vector<const char*> wall_clock::weekdays_ = {
-    "SUNDAY",   "MONDAY", "TUESDAY",  "WEDNESDAY",
-    "THURSDAY", "FRIDAY", "SATURDAY",
-};
 
 void play_audio(void* pData, unsigned char* pBuffer, int Length) {
   ((wall_clock*)pData)->play_chimes(pBuffer, Length);
@@ -30,7 +23,6 @@ wall_clock::wall_clock()
       font_big_{nullptr},
       font_medium_{nullptr},
       font_small_{nullptr},
-      display_{0},
       width_{0},
       height_{0},
       digit_width_{0},
@@ -42,6 +34,7 @@ wall_clock::wall_clock()
       tense_{0},
       pitch_{0},
       volume_{0},
+      display_{0},
       text_color_{0, 0, 0, 0},
       background_{0, 0, 0, 0},
       dim_{true},
@@ -52,6 +45,11 @@ wall_clock::wall_clock()
       time_24_{true},
       seconds_{true},
       pad_hour_{true},
+      pad_minute_{true},
+      pad_second_{true},
+      pad_year_{true},
+      pad_month_{true},
+      pad_day_{true},
       next_alarm_{std::size_t(-1)},
       audio_device_{0},
       texture_second_{nullptr},
@@ -88,6 +86,7 @@ wall_clock::wall_clock()
   std::iota(sequence.begin(), sequence.end(), 0);
   chimes_.insert(chimes_.end(), sequence.begin(), sequence.end());
   create_audio();
+  set_config_handlers();
 }
 
 wall_clock::~wall_clock() {
@@ -204,6 +203,225 @@ void wall_clock::create_audio() {
   }
 }
 
+void wall_clock::set_config_handlers() {
+  config_handlers_ = {
+      {"alarm",
+       [&](std::istream& is) {
+         char colon;
+         int hour, minute;
+         if (is >> hour >> colon >> minute) {
+           if (colon == ':' && hour < 24 && hour >= 0 && minute < 60 &&
+               minute >= 0) {
+             std::vector<std::size_t> alarm_weekdays;
+             std::string weekday;
+             while (is >> weekday) {
+               std::transform<std::string::iterator, std::string::iterator,
+                              int (*)(int)>(weekday.begin(), weekday.end(),
+                                            weekday.begin(), std::toupper);
+               if (weekday == "WEEKDAYS") {
+                 for (const auto wd : {1, 2, 3, 4, 5}) {
+                   alarm_weekdays.push_back(wd);
+                 }
+               } else if (weekday == "WEEKEND") {
+                 for (const auto wd : {0, 6}) {
+                   alarm_weekdays.push_back(wd);
+                 }
+               } else {
+                 auto day =
+                     std::find(weekdays_.begin(), weekdays_.end(), weekday);
+                 if (day != weekdays_.end()) {
+                   alarm_weekdays.push_back(day - weekdays_.begin());
+                 }
+               }
+             }
+             if (alarm_weekdays.empty()) {
+               for (auto it = weekdays_.begin(); it != weekdays_.end(); ++it) {
+                 alarm_weekdays.push_back(it - weekdays_.begin());
+               }
+             }
+             for (const auto& alarm_weekday : alarm_weekdays) {
+               alarms_.insert((alarm_weekday * 24 + hour) * 60 + minute);
+             }
+           }
+         }
+       }},
+      {"volume",
+       [&](std::istream& is) {
+         int volume;
+         if (is >> volume && volume >= 0 && volume <= 100) {
+           volume_ = volume;
+         }
+       }},
+      {"display",
+       [&](std::istream& is) {
+         int display;
+         if (is >> display && display > 0 &&
+             display <= SDL_GetNumVideoDisplays()) {
+           display_ = display - 1;
+         }
+       }},
+      {"color",
+       [&](std::istream& is) {
+         int r, g, b;
+         if (is >> r >> g >> b) {
+           text_color_.r = r;
+           text_color_.g = g;
+           text_color_.b = b;
+         }
+       }},
+      {"background",
+       [&](std::istream& is) {
+         int r, g, b;
+         if (is >> r >> g >> b) {
+           background_.r = r;
+           background_.g = g;
+           background_.b = b;
+         }
+       }},
+      {"dim",
+       [&](std::istream& is) {
+         std::string dim;
+         if (is >> dim) {
+           if (dim == "true") {
+             dim_ = true;
+           } else if (dim == "false") {
+             dim_ = false;
+           }
+         }
+       }},
+      {"whisper",
+       [&](std::istream& is) {
+         std::string whisper;
+         if (is >> whisper) {
+           if (whisper == "true") {
+             whisper_ = true;
+           } else if (whisper == "false") {
+             whisper_ = false;
+           }
+         }
+       }},
+      {"chimes",
+       [&](std::istream& is) {
+         std::string chimes;
+         if (is >> chimes) {
+           if (chimes == "true") {
+             has_chime_ = true;
+           } else if (chimes == "false") {
+             has_chime_ = false;
+           }
+         }
+       }},
+      {"alarms",
+       [&](std::istream& is) {
+         std::string alarms;
+         if (is >> alarms) {
+           if (alarms == "true") {
+             has_alarm_ = true;
+           } else if (alarms == "false") {
+             has_alarm_ = false;
+           }
+         }
+       }},
+      {"date",
+       [&](std::istream& is) {
+         std::string date;
+         if (is >> date) {
+           if (date.size() <= 10) {
+             date_ = date;
+           }
+         }
+       }},
+      {"24-hour",
+       [&](std::istream& is) {
+         std::string time_24;
+         if (is >> time_24) {
+           if (time_24 == "true") {
+             time_24_ = true;
+           } else if (time_24 == "false") {
+             time_24_ = false;
+           }
+         }
+       }},
+      {"seconds",
+       [&](std::istream& is) {
+         std::string seconds;
+         if (is >> seconds) {
+           if (seconds == "true") {
+             seconds_ = true;
+           } else if (seconds == "false") {
+             seconds_ = false;
+           }
+         }
+       }},
+      {"pad-hour",
+       [&](std::istream& is) {
+         std::string pad_hour;
+         if (is >> pad_hour) {
+           if (pad_hour == "true") {
+             pad_hour_ = true;
+           } else if (pad_hour == "false") {
+             pad_hour_ = false;
+           }
+         }
+       }},
+      {"pad-minute",
+       [&](std::istream& is) {
+         std::string pad_minute;
+         if (is >> pad_minute) {
+           if (pad_minute == "true") {
+             pad_minute_ = true;
+           } else if (pad_minute == "false") {
+             pad_minute_ = false;
+           }
+         }
+       }},
+      {"pad-second",
+       [&](std::istream& is) {
+         std::string pad_second;
+         if (is >> pad_second) {
+           if (pad_second == "true") {
+             pad_second_ = true;
+           } else if (pad_second == "false") {
+             pad_second_ = false;
+           }
+         }
+       }},
+      {"pad-year",
+       [&](std::istream& is) {
+         std::string pad_year;
+         if (is >> pad_year) {
+           if (pad_year == "true") {
+             pad_year_ = true;
+           } else if (pad_year == "false") {
+             pad_year_ = false;
+           }
+         }
+       }},
+      {"pad-month",
+       [&](std::istream& is) {
+         std::string pad_month;
+         if (is >> pad_month) {
+           if (pad_month == "true") {
+             pad_month_ = true;
+           } else if (pad_month == "false") {
+             pad_month_ = false;
+           }
+         }
+       }},
+      {"pad-day",
+       [&](std::istream& is) {
+         std::string pad_day;
+         if (is >> pad_day) {
+           if (pad_day == "true") {
+             pad_day_ = true;
+           } else if (pad_day == "false") {
+             pad_day_ = false;
+           }
+         }
+       }},
+  };
+}
+
 int wall_clock::calculate_time_width() {
   return digit_width_ * 4 + colon_width_ +
          (seconds_ ? digit_width_ * 2 + colon_width_ : 0) +
@@ -263,6 +481,7 @@ int wall_clock::handle_event(SDL_Event* event) {
 
 void wall_clock::read_config() {
   volume_ = 100;
+  display_ = 0;
   text_color_ = {255, 255, 255, 255};
   background_ = {0, 0, 0, 255};
   dim_ = true;
@@ -273,6 +492,7 @@ void wall_clock::read_config() {
   time_24_ = true;
   seconds_ = true;
   pad_hour_ = true;
+  alarms_.clear();
   next_alarm_ = std::size_t(-1);
   const char* home_directory = getenv(HOME);
   if (home_directory) {
@@ -280,151 +500,20 @@ void wall_clock::read_config() {
     conf_path += "/.clock.conf";
     std::ifstream config_file(conf_path.c_str());
     std::string config;
-    std::set<std::size_t> alarms;
     while (std::getline(config_file, config)) {
       std::istringstream pair_stream{config};
       std::string key;
       pair_stream >> key;
-      if (key == "alarm") {
-        char colon;
-        int hour, minute;
-        if (pair_stream >> hour >> colon >> minute) {
-          if (colon == ':' && hour < 24 && hour >= 0 && minute < 60 &&
-              minute >= 0) {
-            std::vector<std::size_t> alarm_weekdays;
-            std::string weekday;
-            while (pair_stream >> weekday) {
-              std::transform<std::string::iterator, std::string::iterator,
-                             int (*)(int)>(weekday.begin(), weekday.end(),
-                                           weekday.begin(), std::toupper);
-              if (weekday == "WEEKDAYS") {
-                for (const auto wd : {1, 2, 3, 4, 5}) {
-                  alarm_weekdays.push_back(wd);
-                }
-              } else if (weekday == "WEEKEND") {
-                for (const auto wd : {0, 6}) {
-                  alarm_weekdays.push_back(wd);
-                }
-              } else {
-                auto day =
-                    std::find(weekdays_.begin(), weekdays_.end(), weekday);
-                if (day != weekdays_.end()) {
-                  alarm_weekdays.push_back(day - weekdays_.begin());
-                }
-              }
-            }
-            if (alarm_weekdays.empty()) {
-              for (auto it = weekdays_.begin(); it != weekdays_.end(); ++it) {
-                alarm_weekdays.push_back(it - weekdays_.begin());
-              }
-            }
-            for (const auto& alarm_weekday : alarm_weekdays) {
-              alarms.insert((alarm_weekday * 24 + hour) * 60 + minute);
-            }
-          }
-        }
-      } else if (key == "volume") {
-        int volume;
-        if (pair_stream >> volume && volume >= 0 && volume <= 100) {
-          volume_ = volume;
-        }
-      } else if (key == "color") {
-        int r, g, b;
-        if (pair_stream >> r >> g >> b) {
-          text_color_.r = r;
-          text_color_.g = g;
-          text_color_.b = b;
-        }
-      } else if (key == "background") {
-        int r, g, b;
-        if (pair_stream >> r >> g >> b) {
-          background_.r = r;
-          background_.g = g;
-          background_.b = b;
-        }
-      } else if (key == "display") {
-        int display;
-        if (pair_stream >> display && display > 0 &&
-            display <= SDL_GetNumVideoDisplays()) {
-          display_ = display - 1;
-        }
-      } else if (key == "dim") {
-        std::string dim;
-        if (pair_stream >> dim) {
-          if (dim == "true") {
-            dim_ = true;
-          } else if (dim == "false") {
-            dim_ = false;
-          }
-        }
-      } else if (key == "whisper") {
-        std::string whisper;
-        if (pair_stream >> whisper) {
-          if (whisper == "true") {
-            whisper_ = true;
-          } else if (whisper == "false") {
-            whisper_ = false;
-          }
-        }
-      } else if (key == "chimes") {
-        std::string chimes;
-        if (pair_stream >> chimes) {
-          if (chimes == "true") {
-            has_chime_ = true;
-          } else if (chimes == "false") {
-            has_chime_ = false;
-          }
-        }
-      } else if (key == "alarms") {
-        std::string alarms;
-        if (pair_stream >> alarms) {
-          if (alarms == "true") {
-            has_alarm_ = true;
-          } else if (alarms == "false") {
-            has_alarm_ = false;
-          }
-        }
-      } else if (key == "date") {
-        std::string date;
-        if (pair_stream >> date) {
-          if (date.size() <= 10) {
-            date_ = date;
-          }
-        }
-      } else if (key == "24-hour") {
-        std::string time_24;
-        if (pair_stream >> time_24) {
-          if (time_24 == "true") {
-            time_24_ = true;
-          } else if (time_24 == "false") {
-            time_24_ = false;
-          }
-        }
-      } else if (key == "seconds") {
-        std::string seconds;
-        if (pair_stream >> seconds) {
-          if (seconds == "true") {
-            seconds_ = true;
-          } else if (seconds == "false") {
-            seconds_ = false;
-          }
-        }
-      } else if (key == "pad-hour") {
-        std::string pad_hour;
-        if (pair_stream >> pad_hour) {
-          if (pad_hour == "true") {
-            pad_hour_ = true;
-          } else if (pad_hour == "false") {
-            pad_hour_ = false;
-          }
-        }
+      auto handler = config_handlers_.find(key);
+      if (handler != config_handlers_.end()) {
+        handler->second(pair_stream);
       }
     }
     bool will_alarm = false;
     std::size_t alarm_time =
         (now_.tm_wday * 24 + now_.tm_hour) * 60 + now_.tm_min;
-    auto alarm = alarms.lower_bound(alarm_time);
-    if (alarm != alarms.end() && *alarm == alarm_time) {
+    auto alarm = alarms_.lower_bound(alarm_time);
+    if (alarm != alarms_.end() && *alarm == alarm_time) {
       if (has_alarm_) {
         bell_alarm();
         will_alarm = true;
@@ -436,10 +525,10 @@ void wall_clock::read_config() {
         bell_chime();
       }
     }
-    if (alarm == alarms.end()) {
-      alarm = alarms.begin();
+    if (alarm == alarms_.end()) {
+      alarm = alarms_.begin();
     }
-    if (alarm != alarms.end()) {
+    if (alarm != alarms_.end()) {
       next_alarm_ = *alarm;
     }
   }
@@ -483,7 +572,8 @@ void wall_clock::redraw(const bool second_only) {
   background_.a = 255 * (dim_ ? tense_ : 1.0);
   if (seconds_) {
     std::stringstream sSecond;
-    sSecond << ":" << std::setfill('0') << std::setw(2) << now_.tm_sec;
+    sSecond << ":" << std::setfill('0') << std::setw(pad_second_ ? 2 : 0)
+            << now_.tm_sec;
     draw_text(&texture_second_, &size_second_, sSecond.str(), font_big_,
               text_color_);
   }
@@ -499,7 +589,7 @@ void wall_clock::redraw(const bool second_only) {
     sTime << std::setfill('0') << std::setw(pad_hour_ ? 2 : 0)
           << (time_24_ ? now_.tm_hour
                        : (now_.tm_hour % 12 != 0 ? now_.tm_hour % 12 : 12))
-          << ":" << std::setfill('0') << std::setw(2) << now_.tm_min;
+          << ":" << std::setw(pad_minute_ ? 2 : 0) << now_.tm_min;
     draw_text(&texture_time_, &size_time_, sTime.str(), font_big_, text_color_);
     total_height_ += size_time_.y;
 
@@ -509,9 +599,35 @@ void wall_clock::redraw(const bool second_only) {
     total_height_ += size_day_.y;
 
     std::stringstream sDate;
-    sDate << std::put_time(&now_, date_.c_str());
+    sDate << std::setfill('0');
+    bool ctrl = false;
+    for (const auto& c : date_) {
+      if (ctrl) {
+        switch (c) {
+          case 'm':
+            sDate << std::setw(pad_month_ ? 2 : 0) << now_.tm_mon + 1;
+            break;
+          case 'b':
+            sDate << months_[now_.tm_mon];
+            break;
+          case 'd':
+            sDate << std::setw(pad_day_ ? 2 : 0) << now_.tm_mday;
+            break;
+          case 'Y':
+            sDate << now_.tm_year + 1900;
+            break;
+          case 'y':
+            sDate << std::setw(pad_year_ ? 2 : 0) << now_.tm_year % 100;
+            break;
+        }
+        ctrl = false;
+      } else if (c == '%') {
+        ctrl = true;
+      } else {
+        sDate << c;
+      }
+    }
     auto date = sDate.str();
-    std::transform(date.begin(), date.end(), date.begin(), ::toupper);
     draw_text(&texture_date_, &size_date_, date, font_medium_, text_color_);
     total_height_ += size_date_.y;
 
@@ -519,11 +635,16 @@ void wall_clock::redraw(const bool second_only) {
     sInfo << "\x5:" << (has_chime_ ? '\x7' : '\x8') << "  "
           << "\x6:" << (has_alarm_ ? '\x7' : '\x8') << " ";
     if (next_alarm_ != std::size_t(-1)) {
-      sInfo << weekdays_[next_alarm_ / (60 * 24)][0]
-            << weekdays_[next_alarm_ / (60 * 24)][1]
-            << weekdays_[next_alarm_ / (60 * 24)][2] << " " << std::setfill('0')
-            << std::setw(2) << next_alarm_ / 60 % 24 << ':' << std::setw(2)
-            << next_alarm_ % 60;
+      auto day = next_alarm_ / (60 * 24);
+      auto hour = next_alarm_ / 60 % 24;
+      auto minute = next_alarm_ % 60;
+      sInfo << weekdays_[day][0] << weekdays_[day][1] << weekdays_[day][2]
+            << " " << std::setfill('0') << std::setw(pad_hour_ ? 2 : 0)
+            << (time_24_ ? hour : (hour % 12 != 0 ? hour % 12 : 12)) << ':'
+            << std::setw(pad_minute_ ? 2 : 0) << minute
+            << (time_24_    ? ""
+                : hour < 12 ? " AM"
+                            : " PM");
     }
     draw_text(&texture_options_, &size_options_, sInfo.str(), font_small_,
               text_color_);

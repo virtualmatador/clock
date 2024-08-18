@@ -4,8 +4,13 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 
+#include <array>
 #include <chrono>
+#include <functional>
+#include <iostream>
 #include <list>
+#include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -41,7 +46,6 @@ class wall_clock {
   SDL_Texture* texture_options_;
   SDL_Point size_options_;
   int total_height_;
-  int display_;
   int width_;
   int height_;
   int digit_width_;
@@ -54,6 +58,7 @@ class wall_clock {
   float tense_;
   int pitch_;
   int volume_;
+  int display_;
   SDL_Color text_color_;
   SDL_Color background_;
   bool dim_;
@@ -64,11 +69,25 @@ class wall_clock {
   bool time_24_;
   bool seconds_;
   bool pad_hour_;
+  bool pad_minute_;
+  bool pad_second_;
+  bool pad_year_;
+  bool pad_month_;
+  bool pad_day_;
+  std::set<std::size_t> alarms_;
   std::size_t next_alarm_;
   std::list<STRIKE> strikes_;
+  std::map<std::string, std::function<void(std::istream&)>> config_handlers_;
 
  private:
-  static std::vector<const char*> weekdays_;
+  inline static std::array weekdays_ = {
+      "SUNDAY",   "MONDAY", "TUESDAY",  "WEDNESDAY",
+      "THURSDAY", "FRIDAY", "SATURDAY",
+  };
+  inline static std::array months_ = {
+      "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+      "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
+  };
 
  public:
   wall_clock();
@@ -82,6 +101,7 @@ class wall_clock {
   void reset_big_font();
   void set_big_font();
   void create_audio();
+  void set_config_handlers();
   int calculate_time_width();
   int handle_event(SDL_Event* event);
   void tick();
