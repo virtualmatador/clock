@@ -63,6 +63,7 @@ class wall_clock {
   std::string date_;
   bool time_24_;
   bool seconds_;
+  bool pad_hour_;
   std::size_t next_alarm_;
   std::list<STRIKE> strikes_;
 
