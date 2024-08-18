@@ -428,6 +428,16 @@ int wall_clock::calculate_time_width() {
          (time_24_ ? 0 : ampm_width_);
 }
 
+float wall_clock::get_volume() {
+  return (volume_ / 100.0f) * (whisper_ ? tense_ : 1.0f) * 0.5f;
+}
+
+int wall_clock::chime_count(int hour) {
+  return hour % 12 != 0 ? hour % 12 : 12;
+}
+
+const char* wall_clock::ampm(int hour) { return hour < 12 ? " AM" : " PM"; }
+
 void wall_clock::run() {
   for (;;) {
     auto now = std::chrono::system_clock::now();
@@ -539,10 +549,6 @@ void wall_clock::read_config() {
   }
 }
 
-float wall_clock::get_volume() {
-  return (volume_ / 100.0f) * (whisper_ ? tense_ : 1.0f) * 0.5f;
-}
-
 void wall_clock::tick() {
   static std::time_t tPre = std::chrono::system_clock::to_time_t(
       frame_time_ - std::chrono::minutes(1));
@@ -586,15 +592,14 @@ void wall_clock::redraw(const bool second_only) {
     total_height_ = 0;
 
     if (!time_24_) {
-      auto ampm = now_.tm_hour < 12 ? " AM" : " PM";
-      draw_text(&texture_ampm_, &size_ampm_, ampm, font_medium_, text_color_);
+      auto ap = ampm(now_.tm_hour);
+      draw_text(&texture_ampm_, &size_ampm_, ap, font_medium_, text_color_);
     }
 
     std::stringstream sTime;
     sTime << std::setfill('0') << std::setw(pad_hour_ ? 2 : 0)
-          << (time_24_ ? now_.tm_hour
-                       : (now_.tm_hour % 12 != 0 ? now_.tm_hour % 12 : 12))
-          << ":" << std::setw(pad_minute_ ? 2 : 0) << now_.tm_min;
+          << (time_24_ ? now_.tm_hour : chime_count(now_.tm_hour)) << ":"
+          << std::setw(pad_minute_ ? 2 : 0) << now_.tm_min;
     draw_text(&texture_time_, &size_time_, sTime.str(), font_big_, text_color_);
     total_height_ += size_time_.y;
 
@@ -645,11 +650,9 @@ void wall_clock::redraw(const bool second_only) {
       auto minute = next_alarm_ % 60;
       sInfo << weekdays_[day][0] << weekdays_[day][1] << weekdays_[day][2]
             << " " << std::setfill('0') << std::setw(pad_hour_ ? 2 : 0)
-            << (time_24_ ? hour : (hour % 12 != 0 ? hour % 12 : 12)) << ':'
+            << (time_24_ ? hour : chime_count(hour)) << ':'
             << std::setw(pad_minute_ ? 2 : 0) << minute
-            << (time_24_    ? ""
-                : hour < 12 ? " AM"
-                            : " PM");
+            << (time_24_ ? "" : ampm(hour));
     }
     draw_text(&texture_options_, &size_options_, sInfo.str(), font_small_,
               text_color_);
@@ -733,13 +736,9 @@ void wall_clock::bell_alarm() {
 }
 
 void wall_clock::bell_chime() {
-  int count = now_.tm_hour % 12;
-  if (count == 0) {
-    count = 12;
-  }
   SDL_LockAudioDevice(audio_device_);
   if (strikes_.empty()) {
-    for (int i = 0; i < count; ++i) {
+    for (int i = 0; i < chime_count(now_.tm_hour); ++i) {
       strikes_.push_back(
           {-int((i * 1.5f + 0.0f) * SEGMENT_COUNT) * SAMPLE_COUNT, get_volume(),
            pitch_});

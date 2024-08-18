@@ -103,10 +103,12 @@ class wall_clock {
   void create_audio();
   void set_config_handlers();
   int calculate_time_width();
+  float get_volume();
+  int chime_count(int hour);
+  const char* ampm(int hour);
   int handle_event(SDL_Event* event);
   void tick();
   void read_config();
-  float get_volume();
   void redraw(const bool second_only);
   void draw_text(SDL_Texture** texture, SDL_Point* size,
                  const std::string& text, TTF_Font* font,
