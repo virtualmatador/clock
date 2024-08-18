@@ -492,6 +492,11 @@ void wall_clock::read_config() {
   time_24_ = true;
   seconds_ = true;
   pad_hour_ = true;
+  pad_minute_ = true;
+  pad_second_ = true;
+  pad_year_ = true;
+  pad_month_ = true;
+  pad_day_ = true;
   alarms_.clear();
   next_alarm_ = std::size_t(-1);
   const char* home_directory = getenv(HOME);
