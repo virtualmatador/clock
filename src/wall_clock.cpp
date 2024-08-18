@@ -51,6 +51,7 @@ wall_clock::wall_clock()
       date_{},
       time_24_{true},
       seconds_{true},
+      pad_hour_{true},
       next_alarm_{std::size_t(-1)},
       audio_device_{0},
       texture_second_{nullptr},
@@ -271,6 +272,7 @@ void wall_clock::read_config() {
   date_ = "%m/%d/%Y";
   time_24_ = true;
   seconds_ = true;
+  pad_hour_ = true;
   next_alarm_ = std::size_t(-1);
   const char* home_directory = getenv(HOME);
   if (home_directory) {
@@ -407,6 +409,15 @@ void wall_clock::read_config() {
             seconds_ = false;
           }
         }
+      } else if (key == "pad-hour") {
+        std::string pad_hour;
+        if (pair_stream >> pad_hour) {
+          if (pad_hour == "true") {
+            pad_hour_ = true;
+          } else if (pad_hour == "false") {
+            pad_hour_ = false;
+          }
+        }
       }
     }
     bool will_alarm = false;
@@ -485,7 +496,7 @@ void wall_clock::redraw(const bool second_only) {
     }
 
     std::stringstream sTime;
-    sTime << std::setfill('0') << std::setw(2)
+    sTime << std::setfill('0') << std::setw(pad_hour_ ? 2 : 0)
           << (time_24_ ? now_.tm_hour
                        : (now_.tm_hour % 12 != 0 ? now_.tm_hour % 12 : 12))
           << ":" << std::setfill('0') << std::setw(2) << now_.tm_min;
