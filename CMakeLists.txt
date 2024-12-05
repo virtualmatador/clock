@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 enable_testing()
 
-project("clock" VERSION 2.8.0)
+project("clock" VERSION 3.0.0)
 set(CMAKE_PROJECT_DESCRIPTION "Digital Clock with Chimes and Alarms")
 set(CMAKE_PROJECT_HOMEPAGE_URL "https://www.shaidin.com/clock")
 

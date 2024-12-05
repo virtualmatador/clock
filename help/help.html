@@ -23,10 +23,9 @@
     </li>
 </ul>
 <strong>Configuration:</strong>
+<br>
+Create a file named ".clock.conf" in your home directory.
 <ul>
-    <li>
-        Create a file named ".clock.conf" in your home directory.
-    </li>
     <li>
         To choose the display index - for example 1 - add the line "display 1" to ".clock.conf".
     </li>
@@ -40,29 +39,25 @@
         To set the background color by RGB - for example white - add the line "background 255 255 255" to ".clock.conf".
     </li>
     <li>
-        To disable padding with a zero - for example hour - add the line "pad-hour false" to ".clock.conf".
-        <br>
-        Supported fields:
-        <ul>
-            <li>
-                pad-hour
-            </li>
-            <li>
-                pad-minute
-            </li>
-            <li>
-                pad-second
-            </li>
-            <li>
-                pad-year
-            </li>
-            <li>
-                pad-month
-            </li>
-            <li>
-                pad-day
-            </li>
-        </ul>
+        To disable the 24-hour format, add the line "24-hour false" to ".clock.conf".
+    </li>
+    <li>
+        To hide seconds, add the line "seconds false" to ".clock.conf".
+    </li>
+    <li>
+        To turn dimming off, add the line "dim false" to ".clock.conf".
+    </li>
+    <li>
+        To turn whisper off, add the line "whisper false" to ".clock.conf".
+    </li>
+    <li>
+        To turn hourly chimes on, add the line "chimes true" to ".clock.conf".
+    </li>
+    <li>
+        To turn alarms on, add the line "alarms true" to ".clock.conf".
+    </li>
+    <li>
+        To hide chimes and alarms status, add the line "sound-info false" to ".clock.conf".
     </li>
     <li>
         To set the date format - for example 04-25-2024 - add the line "date %m-%d-%Y" to ".clock.conf".
@@ -102,26 +97,9 @@
         </ul>
     </li>
     <li>
-        To disable the 24-hour format, add the line "24-hour false" to ".clock.conf".
-    </li>
-    <li>
-        To hide seconds, add the line "seconds false" to ".clock.conf".
-    </li>
-    <li>
-        To turn dimming off, add the line "dim false" to ".clock.conf".
-    </li>
-    <li>
-        To turn whisper off, add the line "whisper false" to ".clock.conf".
-    </li>
-    <li>
-        To turn hourly chime on, add the line "chimes true" to ".clock.conf".
-    </li>
-    <li>
-        To turn alarms on, add the line "alarms true" to ".clock.conf".
-    </li>
-    <li>
-        Add each alarm, optionally with days of week - for example "06:30" on monday and tuesday -
-        in a new line like "alarm 06:30 monday tuesday" to ".clock.conf".
+        To add an alarm, optionally with days of week - for example "06:30" on monday and tuesday -
+        add the line "alarm 06:30 monday tuesday" to ".clock.conf".
+        <br>
         Additional supported terms:
         <ul>
             <li>
@@ -132,6 +110,31 @@
             </li>
             <li>
                 never - The alarm won't trigger.
+            </li>
+        </ul>
+    </li>
+    <li>
+        To disable padding with a zero - for example hour - add the line "pad-hour false" to ".clock.conf".
+        <br>
+        Supported fields:
+        <ul>
+            <li>
+                pad-hour
+            </li>
+            <li>
+                pad-minute
+            </li>
+            <li>
+                pad-second
+            </li>
+            <li>
+                pad-year
+            </li>
+            <li>
+                pad-month
+            </li>
+            <li>
+                pad-day
             </li>
         </ul>
     </li>
