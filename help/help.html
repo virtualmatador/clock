@@ -1,6 +1,9 @@
 <strong>Keyboard</strong>
 <ul>
     <li>
+        Enter: read the configuration
+    </li>
+    <li>
         R: ring the bell
     </li>
     <li>
@@ -39,6 +42,9 @@ Create a file named ".clock.conf" in your home directory.
         To set the background color by RGB - for example white - add the line "background 255 255 255" to ".clock.conf".
     </li>
     <li>
+        To exit fullscreen mode, add the line "fullscreen false" to ".clock.conf".
+    </li>
+    <li>
         To disable the 24-hour format, add the line "24-hour false" to ".clock.conf".
     </li>
     <li>
@@ -58,6 +64,26 @@ Create a file named ".clock.conf" in your home directory.
     </li>
     <li>
         To hide chimes and alarms status, add the line "sound-info false" to ".clock.conf".
+    </li>
+    <li>
+        To set the weekday format - for example Sun - add the line "weekday %a" to ".clock.conf".
+        <br>
+        Supported specifiers:
+        <ul>
+            <li>
+                %A - Full Weekday
+            </li>
+            <li>
+                %a - Abbreviated Weekday
+            </li>
+            <li>
+                %w - Weekday As Number, Sunday As 0 (0-6)
+            </li>
+            <li>
+                %u - Weekday As Number, Monday As 1 (1-7)
+            </li>
+        </ul>
+        Use ? to hide the weekday line.
     </li>
     <li>
         To set the date format - for example 04-25-2024 - add the line "date %m-%d-%Y" to ".clock.conf".
@@ -95,6 +121,7 @@ Create a file named ".clock.conf" in your home directory.
                 :
             </li>
         </ul>
+        Use ? to hide the date line.
     </li>
     <li>
         To add an alarm, optionally with days of week - for example "06:30" on monday and tuesday -
