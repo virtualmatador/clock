@@ -41,8 +41,8 @@ private:
   SDL_Point size_time_;
   SDL_Texture *texture_ampm_;
   SDL_Point size_ampm_;
-  SDL_Texture *texture_day_;
-  SDL_Point size_day_;
+  SDL_Texture *texture_weekday_;
+  SDL_Point size_weekday_;
   SDL_Texture *texture_date_;
   SDL_Point size_date_;
   SDL_Texture *texture_options_;
@@ -64,11 +64,13 @@ private:
   int display_;
   SDL_Color text_color_;
   SDL_Color background_;
+  bool fullscreen_;
   bool dim_;
   bool whisper_;
   bool has_chimes_;
   bool has_alarms_;
   bool has_sound_info_;
+  std::string weekday_;
   std::string date_;
   bool time_24_;
   bool seconds_;
@@ -84,7 +86,7 @@ private:
   std::map<std::string, std::function<void(std::istream &)>> config_handlers_;
 
 private:
-  inline static std::array weekdays_ = {
+  inline static std::array weekdays_full_ = {
       "SUNDAY",
       "MONDAY",
       "TUESDAY",
@@ -92,6 +94,15 @@ private:
       "THURSDAY",
       "FRIDAY",
       "SATURDAY",
+  };
+  inline static std::array weekdays_abbreviated_ = {
+      "SUN",
+      "MON",
+      "TUES",
+      "WED",
+      "THURS",
+      "FRI",
+      "SAT",
   };
   inline static std::array months_ = {
       "JAN",
@@ -130,10 +141,10 @@ private:
   void tick();
   void read_config();
   void redraw(const bool second_only);
-  void draw_text(SDL_Texture **texture, SDL_Point *size,
+  void draw_text(SDL_Texture *&texture, SDL_Point &size,
                  const std::string &text, TTF_Font *font,
                  const SDL_Color &color);
-  void render_texture(SDL_Texture *texture, const SDL_Point *size, const int x,
+  void render_texture(SDL_Texture *texture, const SDL_Point &size, const int x,
                       const int y);
   void bell_alarm();
   void bell_chime();

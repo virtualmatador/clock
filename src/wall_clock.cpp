@@ -39,11 +39,13 @@ wall_clock::wall_clock()
       display_{0},
       text_color_{0, 0, 0, 0},
       background_{0, 0, 0, 0},
+      fullscreen_{true},
       dim_{true},
       whisper_{true},
       has_chimes_{false},
       has_alarms_{false},
       has_sound_info_{true},
+      weekday_{},
       date_{},
       time_24_{true},
       seconds_{true},
@@ -61,8 +63,8 @@ wall_clock::wall_clock()
       size_ampm_{0, 0},
       texture_time_{nullptr},
       size_time_{0, 0},
-      texture_day_{nullptr},
-      size_day_{0, 0},
+      texture_weekday_{nullptr},
+      size_weekday_{0, 0},
       texture_date_{nullptr},
       size_date_{0, 0},
       texture_options_{nullptr},
@@ -73,9 +75,9 @@ wall_clock::wall_clock()
     throw "SDL_INIT";
   SDL_ShowCursor(SDL_DISABLE);
   SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
-  wnd_ = SDL_CreateWindow("wall_clock", SDL_WINDOWPOS_UNDEFINED,
+  wnd_ = SDL_CreateWindow("Wall Clock", SDL_WINDOWPOS_UNDEFINED,
                           SDL_WINDOWPOS_UNDEFINED, 0, 0,
-                          SDL_WINDOW_SHOWN | SDL_WINDOW_BORDERLESS);
+                          SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
   if (!wnd_)
   {
     throw "SDL_create_window";
@@ -90,7 +92,6 @@ wall_clock::wall_clock()
     throw "SDL_RWFromConstMem";
   }
   set_window();
-  set_fonts();
   std::vector<int> sequence(13);
   std::iota(sequence.begin(), sequence.end(), 0);
   chimes_.insert(chimes_.end(), sequence.begin(), sequence.end());
@@ -104,11 +105,6 @@ wall_clock::~wall_clock()
   TTF_CloseFont(font_big_);
   TTF_CloseFont(font_medium_);
   TTF_CloseFont(font_small_);
-  SDL_DestroyTexture(texture_second_);
-  SDL_DestroyTexture(texture_time_);
-  SDL_DestroyTexture(texture_day_);
-  SDL_DestroyTexture(texture_date_);
-  SDL_DestroyTexture(texture_options_);
   TTF_Quit();
   SDL_RWclose(font_source_);
   SDL_DestroyRenderer(renderer_);
@@ -118,21 +114,40 @@ wall_clock::~wall_clock()
 
 void wall_clock::set_window()
 {
-  SDL_Rect frame;
-  if (SDL_GetDisplayBounds(display_, &frame) != 0)
-  {
-    throw "SDL_GetDisplayBounds";
-  }
   SDL_DestroyRenderer(renderer_);
-  if (SDL_SetWindowFullscreen(wnd_, 0) != 0)
+  texture_second_ = nullptr;
+  texture_ampm_ = nullptr;
+  texture_time_ = nullptr;
+  texture_weekday_ = nullptr;
+  texture_date_ = nullptr;
+  texture_options_ = nullptr;
+  if (display_ >= 0 && SDL_GetWindowDisplayIndex(wnd_) != display_)
   {
-    throw "SDL_SetWindowFullscreen";
+    SDL_Rect frame;
+    if (SDL_GetDisplayUsableBounds(display_, &frame) != 0)
+    {
+      throw "SDL_GetDisplayBounds";
+    }
+    SDL_SetWindowFullscreen(wnd_, 0);
+    SDL_SetWindowPosition(wnd_, frame.x, frame.y);
   }
-  SDL_SetWindowPosition(wnd_, frame.x, frame.y);
-  SDL_SetWindowSize(wnd_, frame.w, frame.h);
-  if (SDL_SetWindowFullscreen(wnd_, SDL_WINDOW_FULLSCREEN) != 0)
+  if (((SDL_GetWindowFlags(wnd_) & SDL_WINDOW_FULLSCREEN) ==
+       SDL_WINDOW_FULLSCREEN) !=
+      fullscreen_)
   {
-    throw "SDL_SetWindowFullscreen";
+    if (SDL_SetWindowFullscreen(wnd_, fullscreen_ ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0) != 0)
+    {
+      throw "SDL_SetWindowFullscreen";
+    }
+  }
+  if (!fullscreen_)
+  {
+    int width, height;
+    SDL_GetWindowSize(wnd_, &width, &height);
+    if (width <= 1 || height <= 1)
+    {
+      SDL_SetWindowSize(wnd_, 800, 600);
+    }
   }
   renderer_ = SDL_CreateRenderer(
       wnd_, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
@@ -144,6 +159,7 @@ void wall_clock::set_window()
   {
     throw "SDL_GetRendererOutputSize";
   }
+  set_fonts();
 }
 
 void wall_clock::set_fonts()
@@ -276,18 +292,18 @@ void wall_clock::set_config_handlers()
                else
                {
                  auto day =
-                     std::find(weekdays_.begin(), weekdays_.end(), weekday);
-                 if (day != weekdays_.end())
+                     std::find(weekdays_full_.begin(), weekdays_full_.end(), weekday);
+                 if (day != weekdays_full_.end())
                  {
-                   alarm_weekdays.push_back(day - weekdays_.begin());
+                   alarm_weekdays.push_back(day - weekdays_full_.begin());
                  }
                }
              }
              if (alarm_weekdays.empty() && !inactive)
              {
-               for (auto it = weekdays_.begin(); it != weekdays_.end(); ++it)
+               for (auto it = weekdays_full_.begin(); it != weekdays_full_.end(); ++it)
                {
-                 alarm_weekdays.push_back(it - weekdays_.begin());
+                 alarm_weekdays.push_back(it - weekdays_full_.begin());
                }
              }
              for (const auto &alarm_weekday : alarm_weekdays)
@@ -310,7 +326,7 @@ void wall_clock::set_config_handlers()
        [&](std::istream &is)
        {
          int display;
-         if (is >> display && display > 0 &&
+         if (is >> display && display >= 0 &&
              display <= SDL_GetNumVideoDisplays())
          {
            display_ = display - 1;
@@ -336,6 +352,22 @@ void wall_clock::set_config_handlers()
            background_.r = r;
            background_.g = g;
            background_.b = b;
+         }
+       }},
+      {"fullscreen",
+       [&](std::istream &is)
+       {
+         std::string fullscreen;
+         if (is >> fullscreen)
+         {
+           if (fullscreen == "true")
+           {
+             fullscreen_ = true;
+           }
+           else if (fullscreen == "false")
+           {
+             fullscreen_ = false;
+           }
          }
        }},
       {"dim",
@@ -415,6 +447,18 @@ void wall_clock::set_config_handlers()
            else if (sound_info == "false")
            {
              has_sound_info_ = false;
+           }
+         }
+       }},
+      {"weekday",
+       [&](std::istream &is)
+       {
+         std::string weekday;
+         if (is >> weekday)
+         {
+           if (weekday.size() <= 10)
+           {
+             weekday_ = weekday;
            }
          }
        }},
@@ -570,7 +614,10 @@ int wall_clock::calculate_time_width()
 
 int wall_clock::calculate_lines_height()
 {
-  return 4 + 2 + 2 + (has_sound_info_ ? 1 : 0);
+  return (has_sound_info_ ? 1 : 0) +
+         (date_ != "?" ? 2 : 0) +
+         (weekday_ != "?" ? 2 : 0) +
+         4;
 }
 
 float wall_clock::get_volume()
@@ -634,6 +681,10 @@ int wall_clock::handle_event(SDL_Event *event)
     case SDL_SCANCODE_R:
       test_bell();
       break;
+    case SDL_SCANCODE_RETURN:
+      read_config();
+      redraw(false);
+      break;
     }
     break;
   case SDL_MOUSEBUTTONUP:
@@ -642,6 +693,15 @@ int wall_clock::handle_event(SDL_Event *event)
   case SDL_FINGERUP:
     iResult = -1;
     break;
+  case SDL_WINDOWEVENT:
+    switch (event->window.event)
+    {
+    case SDL_WINDOWEVENT_RESIZED:
+      set_window();
+      redraw(false);
+      break;
+    }
+    break;
   }
   return iResult;
 }
@@ -649,14 +709,16 @@ int wall_clock::handle_event(SDL_Event *event)
 void wall_clock::read_config()
 {
   volume_ = 100;
-  display_ = 0;
+  display_ = -1;
   text_color_ = {255, 255, 255, 255};
   background_ = {0, 0, 0, 255};
+  fullscreen_ = true;
   dim_ = true;
   whisper_ = true;
   has_chimes_ = false;
   has_alarms_ = false;
   has_sound_info_ = true;
+  weekday_ = "%A";
   date_ = "%m/%d/%Y";
   time_24_ = true;
   seconds_ = true;
@@ -715,6 +777,20 @@ void wall_clock::read_config()
       next_alarm_ = *alarm;
     }
   }
+  if ((display_ >= 0 && SDL_GetWindowDisplayIndex(wnd_) != display_) ||
+      ((SDL_GetWindowFlags(wnd_) & SDL_WINDOW_FULLSCREEN) == SDL_WINDOW_FULLSCREEN) != fullscreen_)
+  {
+    set_window();
+  }
+  else if (lines_height_ != calculate_lines_height())
+  {
+    set_fonts();
+  }
+  else if (time_width_ != calculate_time_width())
+  {
+    reset_big_font();
+    set_big_font();
+  }
 }
 
 void wall_clock::tick()
@@ -734,16 +810,6 @@ void wall_clock::tick()
                0.15f;
       pitch_ = 12 - std::abs(now_.tm_hour - 12);
       read_config();
-      if (SDL_GetWindowDisplayIndex(wnd_) != display_ || lines_height_ != calculate_lines_height())
-      {
-        set_window();
-        set_fonts();
-      }
-      else if (time_width_ != calculate_time_width())
-      {
-        reset_big_font();
-        set_big_font();
-      }
       redraw(false);
     }
     else if (seconds_)
@@ -763,7 +829,7 @@ void wall_clock::redraw(const bool second_only)
     std::stringstream sSecond;
     sSecond << ":" << std::setfill('0') << std::setw(pad_second_ ? 2 : 0)
             << now_.tm_sec;
-    draw_text(&texture_second_, &size_second_, sSecond.str(), font_big_,
+    draw_text(texture_second_, size_second_, sSecond.str(), font_big_,
               text_color_);
   }
   if (!second_only)
@@ -773,60 +839,96 @@ void wall_clock::redraw(const bool second_only)
     if (!time_24_)
     {
       auto ap = ampm(now_.tm_hour);
-      draw_text(&texture_ampm_, &size_ampm_, ap, font_medium_, text_color_);
+      draw_text(texture_ampm_, size_ampm_, ap, font_medium_, text_color_);
     }
 
     std::stringstream sTime;
     sTime << std::setfill('0') << std::setw(pad_hour_ ? 2 : 0)
           << (time_24_ ? now_.tm_hour : chime_count(now_.tm_hour)) << ":"
           << std::setw(pad_minute_ ? 2 : 0) << now_.tm_min;
-    draw_text(&texture_time_, &size_time_, sTime.str(), font_big_, text_color_);
+    draw_text(texture_time_, size_time_, sTime.str(), font_big_, text_color_);
     total_height_ += size_time_.y;
 
-    std::stringstream sDay;
-    sDay << wall_clock::weekdays_[now_.tm_wday];
-    draw_text(&texture_day_, &size_day_, sDay.str(), font_medium_, text_color_);
-    total_height_ += size_day_.y;
-
-    std::stringstream sDate;
-    sDate << std::setfill('0');
-    bool ctrl = false;
-    for (const auto &c : date_)
+    if (weekday_ != "?")
     {
-      if (ctrl)
+      std::stringstream sWeekday;
+      bool ctrl = false;
+      for (const auto &c : weekday_)
       {
-        switch (c)
+        if (ctrl)
         {
-        case 'm':
-          sDate << std::setw(pad_month_ ? 2 : 0) << now_.tm_mon + 1;
-          break;
-        case 'b':
-          sDate << months_[now_.tm_mon];
-          break;
-        case 'd':
-          sDate << std::setw(pad_day_ ? 2 : 0) << now_.tm_mday;
-          break;
-        case 'Y':
-          sDate << now_.tm_year + 1900;
-          break;
-        case 'y':
-          sDate << std::setw(pad_year_ ? 2 : 0) << now_.tm_year % 100;
-          break;
+          switch (c)
+          {
+          case 'A':
+            sWeekday << weekdays_full_[now_.tm_wday];
+            break;
+          case 'a':
+            sWeekday << weekdays_abbreviated_[now_.tm_wday];
+            break;
+          case 'w':
+            sWeekday << now_.tm_wday;
+            break;
+          case 'u':
+            sWeekday << (now_.tm_wday > 0 ? now_.tm_wday : 7);
+            break;
+          }
+          ctrl = false;
         }
-        ctrl = false;
+        else if (c == '%')
+        {
+          ctrl = true;
+        }
+        else
+        {
+          sWeekday << c;
+        }
       }
-      else if (c == '%')
-      {
-        ctrl = true;
-      }
-      else
-      {
-        sDate << c;
-      }
+      draw_text(texture_weekday_, size_weekday_, sWeekday.str(), font_medium_, text_color_);
+      total_height_ += size_weekday_.y;
     }
-    auto date = sDate.str();
-    draw_text(&texture_date_, &size_date_, date, font_medium_, text_color_);
-    total_height_ += size_date_.y;
+
+    if (date_ != "?")
+    {
+      std::stringstream sDate;
+      sDate << std::setfill('0');
+      bool ctrl = false;
+      for (const auto &c : date_)
+      {
+        if (ctrl)
+        {
+          switch (c)
+          {
+          case 'm':
+            sDate << std::setw(pad_month_ ? 2 : 0) << now_.tm_mon + 1;
+            break;
+          case 'b':
+            sDate << months_[now_.tm_mon];
+            break;
+          case 'd':
+            sDate << std::setw(pad_day_ ? 2 : 0) << now_.tm_mday;
+            break;
+          case 'Y':
+            sDate << now_.tm_year + 1900;
+            break;
+          case 'y':
+            sDate << std::setw(pad_year_ ? 2 : 0) << now_.tm_year % 100;
+            break;
+          }
+          ctrl = false;
+        }
+        else if (c == '%')
+        {
+          ctrl = true;
+        }
+        else
+        {
+          sDate << c;
+        }
+      }
+      auto date = sDate.str();
+      draw_text(texture_date_, size_date_, date, font_medium_, text_color_);
+      total_height_ += size_date_.y;
+    }
 
     if (has_sound_info_)
     {
@@ -838,13 +940,13 @@ void wall_clock::redraw(const bool second_only)
         auto day = next_alarm_ / (60 * 24);
         auto hour = next_alarm_ / 60 % 24;
         auto minute = next_alarm_ % 60;
-        sInfo << weekdays_[day][0] << weekdays_[day][1] << weekdays_[day][2]
+        sInfo << weekdays_abbreviated_[day]
               << " " << std::setfill('0') << std::setw(pad_hour_ ? 2 : 0)
               << (time_24_ ? hour : chime_count(hour)) << ':'
               << std::setw(pad_minute_ ? 2 : 0) << minute
               << (time_24_ ? "" : ampm(hour));
       }
-      draw_text(&texture_options_, &size_options_, sInfo.str(), font_small_,
+      draw_text(texture_options_, size_options_, sInfo.str(), font_small_,
                 text_color_);
       total_height_ += size_options_.y;
     }
@@ -855,68 +957,77 @@ void wall_clock::redraw(const bool second_only)
   {
     throw "Clear Background";
   }
-  int space = (height_ - total_height_) / (4 + (has_sound_info_ ? 1 : 0));
+  int space = (height_ - total_height_) / (2 + (weekday_ != "?" ? 1 : 0) + (date_ != "?" ? 1 : 0) + (has_sound_info_ ? 1 : 0));
   int iX;
   int iY = space;
 
   iX = (width_ - size_time_.x - (seconds_ ? size_second_.x : 0) -
         (time_24_ ? 0 : size_ampm_.x)) /
        2;
-  render_texture(texture_time_, &size_time_, iX, iY);
+  render_texture(texture_time_, size_time_, iX, iY);
   iX += size_time_.x;
   if (seconds_)
   {
-    render_texture(texture_second_, &size_second_, iX, iY);
+    render_texture(texture_second_, size_second_, iX, iY);
     iX += size_second_.x;
   }
   if (!time_24_)
   {
-    render_texture(texture_ampm_, &size_ampm_, iX,
+    render_texture(texture_ampm_, size_ampm_, iX,
                    iY + (size_time_.y - size_ampm_.y) / 2);
     iX += size_ampm_.x;
   }
   iY += size_time_.y + space;
-  iX = (width_ - size_day_.x) / 2;
-  render_texture(texture_day_, &size_day_, iX, iY);
-  iY += size_day_.y + space;
-  iX = (width_ - size_date_.x) / 2;
-  render_texture(texture_date_, &size_date_, iX, iY);
-  iY += size_date_.y + space;
+  if (weekday_ != "?")
+  {
+    iX = (width_ - size_weekday_.x) / 2;
+    render_texture(texture_weekday_, size_weekday_, iX, iY);
+    iY += size_weekday_.y + space;
+  }
+  if (date_ != "?")
+  {
+    iX = (width_ - size_date_.x) / 2;
+    render_texture(texture_date_, size_date_, iX, iY);
+    iY += size_date_.y + space;
+  }
   if (has_sound_info_)
   {
     iX = (width_ - size_options_.x) / 2;
-    render_texture(texture_options_, &size_options_, iX, iY);
+    render_texture(texture_options_, size_options_, iX, iY);
     iY += size_date_.y + space;
   }
   SDL_RenderPresent(renderer_);
 }
 
-void wall_clock::draw_text(SDL_Texture **texture, SDL_Point *size,
+void wall_clock::draw_text(SDL_Texture *&texture, SDL_Point &size,
                            const std::string &text, TTF_Font *font,
                            const SDL_Color &color)
 {
-  SDL_Surface *surface = TTF_RenderText_Solid(font, text.c_str(), color);
+  auto surface = TTF_RenderText_Solid(font, text.c_str(), color);
   if (!surface)
   {
     throw "TTF_RenderText_Solid";
   }
-  SDL_DestroyTexture(*texture);
-  *texture = SDL_CreateTextureFromSurface(renderer_, surface);
-  if (!*texture)
+  if (texture)
+  {
+    SDL_DestroyTexture(texture);
+  }
+  texture = SDL_CreateTextureFromSurface(renderer_, surface);
+  if (!texture)
   {
     throw "SDL_CreateTextureFromSurface";
   }
-  if (SDL_QueryTexture(*texture, nullptr, nullptr, &size->x, &size->y) != 0)
+  if (SDL_QueryTexture(texture, nullptr, nullptr, &size.x, &size.y) != 0)
   {
     throw "SDL_QueryTexture";
   }
   SDL_FreeSurface(surface);
 }
 
-void wall_clock::render_texture(SDL_Texture *texture, const SDL_Point *size,
+void wall_clock::render_texture(SDL_Texture *texture, const SDL_Point &size,
                                 const int x, const int y)
 {
-  SDL_Rect dest{x, y, size->x, size->y};
+  SDL_Rect dest{x, y, size.x, size.y};
   if (SDL_RenderCopy(renderer_, texture, nullptr, &dest) != 0)
   {
     throw "SDL_RenderCopy";
