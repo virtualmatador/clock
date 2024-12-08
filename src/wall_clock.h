@@ -26,6 +26,7 @@ class wall_clock
   };
 
 private:
+  const std::string help_path_;
   std::chrono::system_clock::time_point frame_time_;
   std::tm now_;
 
@@ -64,6 +65,7 @@ private:
   int display_;
   SDL_Color text_color_;
   SDL_Color background_;
+  bool hide_cursor_;
   bool fullscreen_;
   bool dim_;
   bool whisper_;
@@ -120,7 +122,7 @@ private:
   };
 
 public:
-  wall_clock();
+  wall_clock(const std::string &help_path);
   ~wall_clock();
   void run();
   void play_chimes(unsigned char *buffer, int length);

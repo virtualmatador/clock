@@ -1,4 +1,5 @@
 #include <cstring>
+#include <filesystem>
 #include <iostream>
 
 #include "wall_clock.h"
@@ -22,7 +23,10 @@ int main(int argc, char *argv[])
   {
     try
     {
-      wall_clock w_c;
+      wall_clock w_c{
+          (std::filesystem::path{argv[0]}.parent_path() /
+           HELP_RELATIVE_PATH)
+              .string()};
       w_c.run();
     }
     catch (const char *error)

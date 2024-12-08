@@ -17,8 +17,9 @@ void play_audio(void *pData, unsigned char *pBuffer, int Length)
   ((wall_clock *)pData)->play_chimes(pBuffer, Length);
 }
 
-wall_clock::wall_clock()
-    : wnd_{nullptr},
+wall_clock::wall_clock(const std::string &help_path)
+    : help_path_{help_path},
+      wnd_{nullptr},
       renderer_{nullptr},
       font_source_{nullptr},
       font_big_{nullptr},
@@ -39,6 +40,7 @@ wall_clock::wall_clock()
       display_{0},
       text_color_{0, 0, 0, 0},
       background_{0, 0, 0, 0},
+      hide_cursor_{true},
       fullscreen_{true},
       dim_{true},
       whisper_{true},
@@ -73,11 +75,12 @@ wall_clock::wall_clock()
 {
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
     throw "SDL_INIT";
-  SDL_ShowCursor(SDL_DISABLE);
   SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
   wnd_ = SDL_CreateWindow("Wall Clock", SDL_WINDOWPOS_UNDEFINED,
                           SDL_WINDOWPOS_UNDEFINED, 0, 0,
-                          SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+                          SDL_WINDOW_SHOWN |
+                              SDL_WINDOW_RESIZABLE |
+                              SDL_WINDOW_FULLSCREEN_DESKTOP);
   if (!wnd_)
   {
     throw "SDL_create_window";
@@ -121,32 +124,47 @@ void wall_clock::set_window()
   texture_weekday_ = nullptr;
   texture_date_ = nullptr;
   texture_options_ = nullptr;
+  SDL_Rect frame{std::numeric_limits<int>::max(), std::numeric_limits<int>::max(), 0, 0};
   if (display_ >= 0 && SDL_GetWindowDisplayIndex(wnd_) != display_)
   {
-    SDL_Rect frame;
     if (SDL_GetDisplayUsableBounds(display_, &frame) != 0)
     {
       throw "SDL_GetDisplayBounds";
     }
     SDL_SetWindowFullscreen(wnd_, 0);
-    SDL_SetWindowPosition(wnd_, frame.x, frame.y);
   }
-  if (((SDL_GetWindowFlags(wnd_) & SDL_WINDOW_FULLSCREEN) ==
-       SDL_WINDOW_FULLSCREEN) !=
-      fullscreen_)
+  if (fullscreen_)
   {
-    if (SDL_SetWindowFullscreen(wnd_, fullscreen_ ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0) != 0)
+    if (frame.x != std::numeric_limits<int>::max() && frame.h != std::numeric_limits<int>::max())
     {
-      throw "SDL_SetWindowFullscreen";
+      SDL_SetWindowPosition(wnd_, frame.x, frame.y);
+    }
+    if ((SDL_GetWindowFlags(wnd_) & SDL_WINDOW_FULLSCREEN) != SDL_WINDOW_FULLSCREEN)
+    {
+      if (SDL_SetWindowFullscreen(wnd_, SDL_WINDOW_FULLSCREEN_DESKTOP) != 0)
+      {
+        throw "SDL_SetWindowFullscreen(true)";
+      }
     }
   }
-  if (!fullscreen_)
+  else
   {
+    if ((SDL_GetWindowFlags(wnd_) & SDL_WINDOW_FULLSCREEN) == SDL_WINDOW_FULLSCREEN)
+    {
+      if (SDL_SetWindowFullscreen(wnd_, 0) != 0)
+      {
+        throw "SDL_SetWindowFullscreen(false)";
+      }
+    }
+    if (frame.x != std::numeric_limits<int>::max() && frame.h != std::numeric_limits<int>::max())
+    {
+      SDL_SetWindowPosition(wnd_, frame.x, frame.y);
+    }
     int width, height;
     SDL_GetWindowSize(wnd_, &width, &height);
     if (width <= 1 || height <= 1)
     {
-      SDL_SetWindowSize(wnd_, 800, 600);
+      SDL_SetWindowSize(wnd_, std::max(width, 800), std::max(height, 600));
     }
   }
   renderer_ = SDL_CreateRenderer(
@@ -352,6 +370,22 @@ void wall_clock::set_config_handlers()
            background_.r = r;
            background_.g = g;
            background_.b = b;
+         }
+       }},
+      {"hide-cursor",
+       [&](std::istream &is)
+       {
+         std::string hide_cursor;
+         if (is >> hide_cursor)
+         {
+           if (hide_cursor == "true")
+           {
+             hide_cursor_ = true;
+           }
+           else if (hide_cursor == "false")
+           {
+             hide_cursor_ = false;
+           }
          }
        }},
       {"fullscreen",
@@ -672,6 +706,12 @@ int wall_clock::handle_event(SDL_Event *event)
   case SDL_KEYUP:
     switch (event->key.keysym.scancode)
     {
+    case SDL_SCANCODE_F1:
+      if (SDL_OpenURL(help_path_.c_str()) != 0)
+      {
+        throw std::runtime_error("SDL_OpenURL(help)");
+      }
+      break;
     case SDL_SCANCODE_ESCAPE:
       iResult = -1;
       break;
@@ -712,6 +752,7 @@ void wall_clock::read_config()
   display_ = -1;
   text_color_ = {255, 255, 255, 255};
   background_ = {0, 0, 0, 255};
+  hide_cursor_ = true;
   fullscreen_ = true;
   dim_ = true;
   whisper_ = true;
@@ -777,6 +818,7 @@ void wall_clock::read_config()
       next_alarm_ = *alarm;
     }
   }
+  SDL_ShowCursor(hide_cursor_ ? SDL_DISABLE : SDL_ENABLE);
   if ((display_ >= 0 && SDL_GetWindowDisplayIndex(wnd_) != display_) ||
       ((SDL_GetWindowFlags(wnd_) & SDL_WINDOW_FULLSCREEN) == SDL_WINDOW_FULLSCREEN) != fullscreen_)
   {
