@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.13)
 enable_testing()
 
-add_compile_definitions(PROJECT_VERSION="${CMAKE_PROJECT_VERSION}")
 file(GLOB sources "./*.cpp")
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     set(exe_type "WIN32")
@@ -9,6 +8,12 @@ else()
     set(exe_type "")
 endif()
 add_executable("${CMAKE_PROJECT_NAME}" ${exe_type} ${sources})
+set(help_relative_path "../share/${CMAKE_PROJECT_NAME}.html")
+cmake_path(NATIVE_PATH help_relative_path help_relative_path)
+target_compile_definitions("${CMAKE_PROJECT_NAME}"
+    PRIVATE PROJECT_VERSION="${CMAKE_PROJECT_VERSION}"
+    PRIVATE HELP_RELATIVE_PATH=R"\(${help_relative_path}\)"
+)
 set_property(TARGET "${CMAKE_PROJECT_NAME}" PROPERTY CXX_STANDARD 17)
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_compile_definitions("${CMAKE_PROJECT_NAME}" PRIVATE
