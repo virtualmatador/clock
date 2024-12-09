@@ -74,13 +74,13 @@ wall_clock::wall_clock(const std::string &help_path)
       total_height_{0}
 {
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
+  {
     throw "SDL_INIT";
+  }
   SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
   wnd_ = SDL_CreateWindow("Wall Clock", SDL_WINDOWPOS_UNDEFINED,
-                          SDL_WINDOWPOS_UNDEFINED, 0, 0,
-                          SDL_WINDOW_SHOWN |
-                              SDL_WINDOW_RESIZABLE |
-                              SDL_WINDOW_FULLSCREEN_DESKTOP);
+                          SDL_WINDOWPOS_UNDEFINED, 800, 600,
+                          SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
   if (!wnd_)
   {
     throw "SDL_create_window";
@@ -94,7 +94,6 @@ wall_clock::wall_clock(const std::string &help_path)
   {
     throw "SDL_RWFromConstMem";
   }
-  set_window();
   std::vector<int> sequence(13);
   std::iota(sequence.begin(), sequence.end(), 0);
   chimes_.insert(chimes_.end(), sequence.begin(), sequence.end());
@@ -115,6 +114,40 @@ wall_clock::~wall_clock()
   SDL_Quit();
 }
 
+void wall_clock::set_display()
+{
+  if (auto current_display = SDL_GetWindowDisplayIndex(wnd_);
+      current_display >= 0 && display_ >= 0 && display_ != current_display)
+  {
+    if ((SDL_GetWindowFlags(wnd_) & SDL_WINDOW_FULLSCREEN_DESKTOP) == SDL_WINDOW_FULLSCREEN_DESKTOP)
+    {
+      SDL_SetWindowFullscreen(wnd_, 0);
+    }
+    SDL_Rect current_frame;
+    if (SDL_GetDisplayUsableBounds(current_display, &current_frame) != 0)
+    {
+      throw std::runtime_error("SDL_GetDisplayUsableBounds(current)");
+    }
+    SDL_Rect current_window;
+    SDL_GetWindowPosition(wnd_, &current_window.x, &current_window.y);
+    SDL_GetWindowSize(wnd_, &current_window.w, &current_window.h);
+    SDL_Rect new_frame;
+    if (SDL_GetDisplayUsableBounds(display_, &new_frame) != 0)
+    {
+      throw std::runtime_error("SDL_GetWindowDisplayIndex(new)");
+    }
+    SDL_Rect new_window{
+        new_frame.x + (current_window.x - current_frame.x) * new_frame.w / current_frame.w,
+        new_frame.y + (current_window.y - current_frame.y) * new_frame.h / current_frame.h,
+        current_window.w * new_frame.w / current_frame.w,
+        current_window.h * new_frame.h / current_frame.h,
+    };
+    SDL_SetWindowPosition(wnd_, new_window.x, new_window.y);
+    SDL_SetWindowSize(wnd_, new_window.w, new_window.h);
+  }
+  set_window();
+}
+
 void wall_clock::set_window()
 {
   SDL_DestroyRenderer(renderer_);
@@ -124,22 +157,9 @@ void wall_clock::set_window()
   texture_weekday_ = nullptr;
   texture_date_ = nullptr;
   texture_options_ = nullptr;
-  SDL_Rect frame{std::numeric_limits<int>::max(), std::numeric_limits<int>::max(), 0, 0};
-  if (display_ >= 0 && SDL_GetWindowDisplayIndex(wnd_) != display_)
-  {
-    if (SDL_GetDisplayUsableBounds(display_, &frame) != 0)
-    {
-      throw "SDL_GetDisplayBounds";
-    }
-    SDL_SetWindowFullscreen(wnd_, 0);
-  }
   if (fullscreen_)
   {
-    if (frame.x != std::numeric_limits<int>::max() && frame.h != std::numeric_limits<int>::max())
-    {
-      SDL_SetWindowPosition(wnd_, frame.x, frame.y);
-    }
-    if ((SDL_GetWindowFlags(wnd_) & SDL_WINDOW_FULLSCREEN) != SDL_WINDOW_FULLSCREEN)
+    if ((SDL_GetWindowFlags(wnd_) & SDL_WINDOW_FULLSCREEN_DESKTOP) != SDL_WINDOW_FULLSCREEN_DESKTOP)
     {
       if (SDL_SetWindowFullscreen(wnd_, SDL_WINDOW_FULLSCREEN_DESKTOP) != 0)
       {
@@ -149,22 +169,12 @@ void wall_clock::set_window()
   }
   else
   {
-    if ((SDL_GetWindowFlags(wnd_) & SDL_WINDOW_FULLSCREEN) == SDL_WINDOW_FULLSCREEN)
+    if ((SDL_GetWindowFlags(wnd_) & SDL_WINDOW_FULLSCREEN_DESKTOP) == SDL_WINDOW_FULLSCREEN_DESKTOP)
     {
       if (SDL_SetWindowFullscreen(wnd_, 0) != 0)
       {
         throw "SDL_SetWindowFullscreen(false)";
       }
-    }
-    if (frame.x != std::numeric_limits<int>::max() && frame.h != std::numeric_limits<int>::max())
-    {
-      SDL_SetWindowPosition(wnd_, frame.x, frame.y);
-    }
-    int width, height;
-    SDL_GetWindowSize(wnd_, &width, &height);
-    if (width <= 1 || height <= 1)
-    {
-      SDL_SetWindowSize(wnd_, std::max(width, 800), std::max(height, 600));
     }
   }
   renderer_ = SDL_CreateRenderer(
@@ -819,8 +829,11 @@ void wall_clock::read_config()
     }
   }
   SDL_ShowCursor(hide_cursor_ ? SDL_DISABLE : SDL_ENABLE);
-  if ((display_ >= 0 && SDL_GetWindowDisplayIndex(wnd_) != display_) ||
-      ((SDL_GetWindowFlags(wnd_) & SDL_WINDOW_FULLSCREEN) == SDL_WINDOW_FULLSCREEN) != fullscreen_)
+  if ((display_ >= 0 && SDL_GetWindowDisplayIndex(wnd_) != display_) || !renderer_)
+  {
+    set_display();
+  }
+  else if (((SDL_GetWindowFlags(wnd_) & SDL_WINDOW_FULLSCREEN_DESKTOP) == SDL_WINDOW_FULLSCREEN_DESKTOP) != fullscreen_)
   {
     set_window();
   }
