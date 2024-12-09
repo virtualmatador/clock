@@ -128,6 +128,7 @@ public:
   void play_chimes(unsigned char *buffer, int length);
 
 private:
+  void set_display();
   void set_window();
   void set_fonts();
   void reset_big_font();
