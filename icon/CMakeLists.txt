@@ -1,5 +1,12 @@
 cmake_minimum_required(VERSION 3.13)
 
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(inkscape inkscape)
+    set(convert convert)
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    set(inkscape inkscape.exe)
+    set(convert magick.exe)
+endif()
 set(BASE_DIR "hicolor")
 set(RESOLUTIONS 16 22 32 48 256 512)
 foreach(RESOLUTION ${RESOLUTIONS})
@@ -7,7 +14,7 @@ foreach(RESOLUTION ${RESOLUTIONS})
     set(OUTPUT_PNG "${OUTPUT_DIR}/${CMAKE_PROJECT_NAME}.png")
     add_custom_command(OUTPUT "${OUTPUT_PNG}"
         COMMAND ${CMAKE_COMMAND} -E make_directory "${OUTPUT_DIR}"
-        COMMAND inkscape -o "${OUTPUT_PNG}" -w ${RESOLUTION} -h ${RESOLUTION} "${CMAKE_CURRENT_SOURCE_DIR}/icon.svg"
+        COMMAND ${inkscape} -o "${OUTPUT_PNG}" -w ${RESOLUTION} -h ${RESOLUTION} "${CMAKE_CURRENT_SOURCE_DIR}/icon.svg"
         MAIN_DEPENDENCY "icon.svg")
     add_custom_target("${RESOLUTION}-png" ALL DEPENDS "${OUTPUT_PNG}")
     list(APPEND png_targets "${RESOLUTION}-png")
@@ -15,7 +22,7 @@ foreach(RESOLUTION ${RESOLUTIONS})
 endforeach()
 add_custom_target("app_icon" ALL DEPENDS "app.ico")
 add_custom_command(OUTPUT "app.ico"
-    COMMAND convert ${png_files} "app.ico" 
+    COMMAND ${convert} ${png_files} "app.ico" 
     DEPENDS ${png_targets})
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BASE_DIR}" DESTINATION "share/icons")
