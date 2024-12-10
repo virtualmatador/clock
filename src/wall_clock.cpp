@@ -75,7 +75,11 @@ wall_clock::wall_clock(const std::string &help_path)
 {
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
   {
-    throw "SDL_INIT";
+    throw std::runtime_error("SDL_INIT");
+  }
+  if (TTF_Init() < 0)
+  {
+    throw std::runtime_error("TTF_Init");
   }
   SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
   wnd_ = SDL_CreateWindow("Wall Clock", SDL_WINDOWPOS_UNDEFINED,
@@ -83,22 +87,25 @@ wall_clock::wall_clock(const std::string &help_path)
                           SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
   if (!wnd_)
   {
-    throw "SDL_create_window";
+    throw std::runtime_error("SDL_create_window");
   }
-  if (TTF_Init() < 0)
+  renderer_ = SDL_CreateRenderer(
+      wnd_, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+  if (!renderer_)
   {
-    throw "TTF_Init";
+    throw std::runtime_error("SDL_CreateRenderer");
   }
   font_source_ = SDL_RWFromConstMem(Font_ttf, Font_ttf_size);
   if (!font_source_)
   {
-    throw "SDL_RWFromConstMem";
+    throw std::runtime_error("SDL_RWFromConstMem");
   }
   std::vector<int> sequence(13);
   std::iota(sequence.begin(), sequence.end(), 0);
   chimes_.insert(chimes_.end(), sequence.begin(), sequence.end());
   create_audio();
   set_config_handlers();
+  set_display();
 }
 
 wall_clock::~wall_clock()
@@ -116,15 +123,14 @@ wall_clock::~wall_clock()
 
 void wall_clock::set_display()
 {
-  if (auto current_display = SDL_GetWindowDisplayIndex(wnd_);
-      current_display >= 0 && display_ >= 0 && display_ != current_display)
+  if (display_ >= 0 && display_ != SDL_GetWindowDisplayIndex(wnd_))
   {
     if ((SDL_GetWindowFlags(wnd_) & SDL_WINDOW_FULLSCREEN_DESKTOP) == SDL_WINDOW_FULLSCREEN_DESKTOP)
     {
       SDL_SetWindowFullscreen(wnd_, 0);
     }
     SDL_Rect current_frame;
-    if (SDL_GetDisplayUsableBounds(current_display, &current_frame) != 0)
+    if (SDL_GetDisplayUsableBounds(SDL_GetWindowDisplayIndex(wnd_), &current_frame) != 0)
     {
       throw std::runtime_error("SDL_GetDisplayUsableBounds(current)");
     }
@@ -150,20 +156,13 @@ void wall_clock::set_display()
 
 void wall_clock::set_window()
 {
-  SDL_DestroyRenderer(renderer_);
-  texture_second_ = nullptr;
-  texture_ampm_ = nullptr;
-  texture_time_ = nullptr;
-  texture_weekday_ = nullptr;
-  texture_date_ = nullptr;
-  texture_options_ = nullptr;
   if (fullscreen_)
   {
     if ((SDL_GetWindowFlags(wnd_) & SDL_WINDOW_FULLSCREEN_DESKTOP) != SDL_WINDOW_FULLSCREEN_DESKTOP)
     {
       if (SDL_SetWindowFullscreen(wnd_, SDL_WINDOW_FULLSCREEN_DESKTOP) != 0)
       {
-        throw "SDL_SetWindowFullscreen(true)";
+        throw std::runtime_error("SDL_SetWindowFullscreen(true)");
       }
     }
   }
@@ -173,19 +172,14 @@ void wall_clock::set_window()
     {
       if (SDL_SetWindowFullscreen(wnd_, 0) != 0)
       {
-        throw "SDL_SetWindowFullscreen(false)";
+        throw std::runtime_error("SDL_SetWindowFullscreen(false)");
       }
     }
   }
-  renderer_ = SDL_CreateRenderer(
-      wnd_, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-  if (!renderer_)
+  SDL_GetWindowSizeInPixels(wnd_, &width_, &height_);
+  if (SDL_RenderSetLogicalSize(renderer_, width_, height_) != 0)
   {
-    throw "SDL_CreateRenderer";
-  }
-  if (SDL_GetRendererOutputSize(renderer_, &width_, &height_) != 0)
-  {
-    throw "SDL_GetRendererOutputSize";
+    throw std::runtime_error("SDL_RenderSetLogicalSize");
   }
   set_fonts();
 }
@@ -201,7 +195,7 @@ void wall_clock::set_fonts()
                                 width_ * height_ * 2 / lines_height_ / text_width);
   if (!font_medium_)
   {
-    throw "TTF_OpenFont";
+    throw std::runtime_error("TTF_OpenFont");
   }
   SDL_RWseek(font_source_, 0, RW_SEEK_SET);
   TTF_CloseFont(font_small_);
@@ -209,7 +203,7 @@ void wall_clock::set_fonts()
                                width_ * height_ * 1 / lines_height_ / text_width);
   if (!font_small_)
   {
-    throw "TTF_OpenFont";
+    throw std::runtime_error("TTF_OpenFont");
   }
   int space_width, a_width, p_width, m_width;
   if (TTF_SizeText(font_medium_, " ", &space_width, nullptr) < 0 ||
@@ -217,7 +211,7 @@ void wall_clock::set_fonts()
       TTF_SizeText(font_medium_, "P", &p_width, nullptr) < 0 ||
       TTF_SizeText(font_medium_, "M", &m_width, nullptr) < 0)
   {
-    throw "TTF_SizeText";
+    throw std::runtime_error("TTF_SizeText");
   }
   ampm_width_ = space_width + std::max(a_width, p_width) + m_width;
   set_big_font();
@@ -230,12 +224,12 @@ void wall_clock::reset_big_font()
   font_big_ = TTF_OpenFontRW(font_source_, false, height_ * 4 / lines_height_);
   if (!font_big_)
   {
-    throw "TTF_OpenFont";
+    throw std::runtime_error("TTF_OpenFont");
   }
   if (TTF_SizeText(font_big_, "0", &digit_width_, nullptr) < 0 ||
       TTF_SizeText(font_big_, ":", &colon_width_, nullptr) < 0)
   {
-    throw "TTF_SizeText";
+    throw std::runtime_error("TTF_SizeText");
   }
   time_width_ = calculate_time_width();
 }
@@ -249,12 +243,12 @@ void wall_clock::set_big_font()
                                  (std::max(time_width_, width_) - ampm_width_));
   if (!font_big_)
   {
-    throw "TTF_OpenFont";
+    throw std::runtime_error("TTF_OpenFont");
   }
   if (TTF_SizeText(font_big_, "0", &digit_width_, nullptr) < 0 ||
       TTF_SizeText(font_big_, ":", &colon_width_, nullptr) < 0)
   {
-    throw "TTF_SizeText";
+    throw std::runtime_error("TTF_SizeText");
   }
   time_width_ = calculate_time_width();
 }
@@ -272,7 +266,7 @@ void wall_clock::create_audio()
   audio_device_ = SDL_OpenAudioDevice(nullptr, 0, &Alarm, nullptr, 0);
   if (!audio_device_)
   {
-    throw "SDL_create_audio";
+    throw std::runtime_error("SDL_create_audio");
   }
 }
 
@@ -829,7 +823,7 @@ void wall_clock::read_config()
     }
   }
   SDL_ShowCursor(hide_cursor_ ? SDL_DISABLE : SDL_ENABLE);
-  if ((display_ >= 0 && SDL_GetWindowDisplayIndex(wnd_) != display_) || !renderer_)
+  if (display_ >= 0 && SDL_GetWindowDisplayIndex(wnd_) != display_)
   {
     set_display();
   }
@@ -1010,7 +1004,7 @@ void wall_clock::redraw(const bool second_only)
                              background_.b, background_.a) != 0 ||
       SDL_RenderClear(renderer_) != 0)
   {
-    throw "Clear Background";
+    throw std::runtime_error("Clear Background");
   }
   int space = (height_ - total_height_) / (2 + (weekday_ != "?" ? 1 : 0) + (date_ != "?" ? 1 : 0) + (has_sound_info_ ? 1 : 0));
   int iX;
@@ -1061,7 +1055,7 @@ void wall_clock::draw_text(SDL_Texture *&texture, SDL_Point &size,
   auto surface = TTF_RenderText_Solid(font, text.c_str(), color);
   if (!surface)
   {
-    throw "TTF_RenderText_Solid";
+    throw std::runtime_error("TTF_RenderText_Solid");
   }
   if (texture)
   {
@@ -1070,11 +1064,11 @@ void wall_clock::draw_text(SDL_Texture *&texture, SDL_Point &size,
   texture = SDL_CreateTextureFromSurface(renderer_, surface);
   if (!texture)
   {
-    throw "SDL_CreateTextureFromSurface";
+    throw std::runtime_error("SDL_CreateTextureFromSurface");
   }
   if (SDL_QueryTexture(texture, nullptr, nullptr, &size.x, &size.y) != 0)
   {
-    throw "SDL_QueryTexture";
+    throw std::runtime_error("SDL_QueryTexture");
   }
   SDL_FreeSurface(surface);
 }
@@ -1085,7 +1079,7 @@ void wall_clock::render_texture(SDL_Texture *texture, const SDL_Point &size,
   SDL_Rect dest{x, y, size.x, size.y};
   if (SDL_RenderCopy(renderer_, texture, nullptr, &dest) != 0)
   {
-    throw "SDL_RenderCopy";
+    throw std::runtime_error("SDL_RenderCopy");
   }
 }
 
