@@ -1,8 +1,8 @@
 #ifndef SRC_WALL_CLOCK_H
 #define SRC_WALL_CLOCK_H
 
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_ttf.h>
+#include <SDL.h>
+#include <SDL_ttf.h>
 
 #include <array>
 #include <chrono>
