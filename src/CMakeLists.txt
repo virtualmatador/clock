@@ -25,6 +25,7 @@ target_compile_definitions("${CMAKE_PROJECT_NAME}"
 set_property(TARGET "${CMAKE_PROJECT_NAME}" PROPERTY CXX_STANDARD 17)
 target_link_libraries("${CMAKE_PROJECT_NAME}"
     resource SDL2::SDL2main SDL2::SDL2 SDL2_ttf::SDL2_ttf)
+install(TARGETS "${CMAKE_PROJECT_NAME}" DESTINATION "bin")
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_compile_definitions("${CMAKE_PROJECT_NAME}" PRIVATE
         HOME="HOME"
@@ -37,4 +38,3 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     target_link_libraries("${CMAKE_PROJECT_NAME}" win_resource)
     install(FILES $<TARGET_RUNTIME_DLLS:${CMAKE_PROJECT_NAME}> TYPE BIN)
 endif()
-install(TARGETS "${CMAKE_PROJECT_NAME}" DESTINATION "bin")
