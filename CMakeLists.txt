@@ -19,6 +19,8 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     set(CPACK_GENERATOR "WIX")
     set(CPACK_PACKAGE_NAME "${CMAKE_PROJECT_NAME}-${CMAKE_PROJECT_VERSION}")
+    set(CPACK_PACKAGE_EXECUTABLES "${CMAKE_PROJECT_NAME}" "Clock")
+    set(CPACK_CREATE_DESKTOP_LINKS "${CMAKE_PROJECT_NAME}")
     set(CPACK_WIX_UPGRADE_GUID "5A33D85D-5591-48ED-AD10-E7DB2B8552A7")
     set(CPACK_PACKAGE_INSTALL_DIRECTORY
         "${CPACK_PACKAGE_VENDOR}\\\\${CMAKE_PROJECT_NAME}")
@@ -28,7 +30,7 @@ configure_file("LICENSE" "license.txt")
 include(CPack)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        install(FILES "clock.desktop" DESTINATION "share/applications")
+    install(FILES "clock.desktop" DESTINATION "share/applications")
 endif()
 
 add_custom_target("conf" ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/.clock.conf")
