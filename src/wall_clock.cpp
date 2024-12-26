@@ -32,7 +32,8 @@ wall_clock::wall_clock(const std::string &help_path)
       ampm_width_{0},
       time_width_{0},
       lines_height_{0},
-      frame_time_{std::chrono::system_clock::duration(0)},
+      frame_time_{},
+      timer_base_{},
       now_{0},
       tense_{0},
       pitch_{0},
@@ -57,6 +58,7 @@ wall_clock::wall_clock(const std::string &help_path)
       pad_year_{true},
       pad_month_{true},
       pad_day_{true},
+      timer_interval_{0},
       next_alarm_{std::size_t(-1)},
       audio_device_{0},
       texture_second_{nullptr},
@@ -640,6 +642,18 @@ void wall_clock::set_config_handlers()
            }
          }
        }},
+      {"timer-interval",
+       [&](std::istream &is)
+       {
+         int timer_interval;
+         if (is >> timer_interval)
+         {
+           if (timer_interval > 0)
+           {
+             timer_interval_ = timer_interval;
+           }
+         }
+       }},
   };
 }
 
@@ -677,7 +691,7 @@ void wall_clock::run()
     auto now = std::chrono::system_clock::now();
     auto tmp =
         now.time_since_epoch().count() % std::chrono::system_clock::period::den;
-    now = now - std::chrono::system_clock::duration(tmp);
+    now = now - std::chrono::system_clock::duration{tmp};
     if (now != frame_time_)
     {
       frame_time_ = now;
@@ -729,6 +743,39 @@ int wall_clock::handle_event(SDL_Event *event)
       read_config();
       redraw(false);
       break;
+    case SDL_SCANCODE_0:
+      start_timer(0);
+      break;
+    case SDL_SCANCODE_1:
+      start_timer(1);
+      break;
+    case SDL_SCANCODE_2:
+      start_timer(2);
+      break;
+    case SDL_SCANCODE_3:
+      start_timer(3);
+      break;
+    case SDL_SCANCODE_4:
+      start_timer(4);
+      break;
+    case SDL_SCANCODE_5:
+      start_timer(5);
+      break;
+    case SDL_SCANCODE_6:
+      start_timer(6);
+      break;
+    case SDL_SCANCODE_7:
+      start_timer(7);
+      break;
+    case SDL_SCANCODE_8:
+      start_timer(8);
+      break;
+    case SDL_SCANCODE_9:
+      start_timer(9);
+      break;
+    case SDL_SCANCODE_MINUS:
+      stop_timer();
+      break;
     }
     break;
   case SDL_MOUSEBUTTONUP:
@@ -773,6 +820,7 @@ void wall_clock::read_config()
   pad_year_ = true;
   pad_month_ = true;
   pad_day_ = true;
+  timer_interval_ = 10;
   alarms_.clear();
   next_alarm_ = std::size_t(-1);
   const char *home_directory = getenv(HOME);
@@ -861,6 +909,10 @@ void wall_clock::tick()
       read_config();
       redraw(false);
     }
+    else if (timer_base_.time_since_epoch().count() != 0)
+    {
+      redraw(false);
+    }
     else if (seconds_)
     {
       redraw(true);
@@ -901,35 +953,53 @@ void wall_clock::redraw(const bool second_only)
     if (weekday_ != "?")
     {
       std::stringstream sWeekday;
-      bool ctrl = false;
-      for (const auto &c : weekday_)
+      if (timer_base_.time_since_epoch().count() != 0)
       {
-        if (ctrl)
+        int seconds = (frame_time_ - timer_base_) / std::chrono::seconds(1);
+        sWeekday << std::setfill('0') << (seconds < 0 ? "-" : " ")
+                 << std::setw(pad_minute_ ? 2 : 0) << std::abs(seconds) / 60 << ":"
+                 << std::setw(pad_second_ ? 2 : 0) << std::abs(seconds) % 60 << " ";
+        if (seconds == -2)
         {
-          switch (c)
+          bell(3, 12, 1.0f);
+        }
+        else if (seconds >= 0 && seconds % timer_interval_ == 0)
+        {
+          bell(1, std::min(12, 2 + seconds / timer_interval_), 1.0f);
+        }
+      }
+      else
+      {
+        bool ctrl = false;
+        for (const auto &c : weekday_)
+        {
+          if (ctrl)
           {
-          case 'A':
-            sWeekday << weekdays_full_[now_.tm_wday];
-            break;
-          case 'a':
-            sWeekday << weekdays_abbreviated_[now_.tm_wday];
-            break;
-          case 'w':
-            sWeekday << now_.tm_wday;
-            break;
-          case 'u':
-            sWeekday << (now_.tm_wday > 0 ? now_.tm_wday : 7);
-            break;
+            switch (c)
+            {
+            case 'A':
+              sWeekday << weekdays_full_[now_.tm_wday];
+              break;
+            case 'a':
+              sWeekday << weekdays_abbreviated_[now_.tm_wday];
+              break;
+            case 'w':
+              sWeekday << now_.tm_wday;
+              break;
+            case 'u':
+              sWeekday << (now_.tm_wday > 0 ? now_.tm_wday : 7);
+              break;
+            }
+            ctrl = false;
           }
-          ctrl = false;
-        }
-        else if (c == '%')
-        {
-          ctrl = true;
-        }
-        else
-        {
-          sWeekday << c;
+          else if (c == '%')
+          {
+            ctrl = true;
+          }
+          else
+          {
+            sWeekday << c;
+          }
         }
       }
       draw_text(texture_weekday_, size_weekday_, sWeekday.str(), font_medium_, text_color_);
@@ -1083,6 +1153,17 @@ void wall_clock::render_texture(SDL_Texture *texture, const SDL_Point &size,
   }
 }
 
+void wall_clock::start_timer(int delay)
+{
+  timer_base_ = frame_time_ + std::chrono::seconds(delay * timer_interval_);
+}
+
+void wall_clock::stop_timer()
+{
+  timer_base_ = {};
+  redraw(false);
+}
+
 void wall_clock::bell_alarm()
 {
   SDL_LockAudioDevice(audio_device_);
@@ -1118,16 +1199,16 @@ void wall_clock::bell_chime()
   SDL_PauseAudioDevice(audio_device_, 0);
 }
 
-void wall_clock::bell_test()
+void wall_clock::bell(int count, int pitch, float delay)
 {
   SDL_LockAudioDevice(audio_device_);
   if (strikes_.empty())
   {
-    for (int i = 0; i < 2; ++i)
+    for (int i = 0; i < count; ++i)
     {
       strikes_.push_back(
-          {-int((i * 2.0f + 0.0f) * SEGMENT_COUNT) * SAMPLE_COUNT, get_volume(),
-           pitch_});
+          {-int((i * delay) * SEGMENT_COUNT) * SAMPLE_COUNT, get_volume(),
+           pitch});
     }
   }
   SDL_UnlockAudioDevice(audio_device_);
@@ -1142,7 +1223,7 @@ void wall_clock::silent()
   SDL_UnlockAudioDevice(audio_device_);
 }
 
-void wall_clock::test_bell() { bell_test(); }
+void wall_clock::test_bell() { bell(2, pitch_, 2.0f); }
 
 void wall_clock::play_chimes(unsigned char *buffer, int length)
 {
