@@ -28,6 +28,7 @@ class wall_clock
 private:
   const std::string help_path_;
   std::chrono::system_clock::time_point frame_time_;
+  std::chrono::system_clock::time_point timer_base_;
   std::tm now_;
 
   SDL_Window *wnd_;
@@ -82,6 +83,7 @@ private:
   bool pad_year_;
   bool pad_month_;
   bool pad_day_;
+  int timer_interval_;
   std::set<std::size_t> alarms_;
   std::size_t next_alarm_;
   std::list<STRIKE> strikes_;
@@ -149,9 +151,11 @@ private:
                  const SDL_Color &color);
   void render_texture(SDL_Texture *texture, const SDL_Point &size, const int x,
                       const int y);
+  void start_timer(int delay);
+  void stop_timer();
   void bell_alarm();
   void bell_chime();
-  void bell_test();
+  void bell(int count, int pitch, float delay);
   void silent();
   void test_bell();
 };
