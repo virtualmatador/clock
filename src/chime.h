@@ -8,8 +8,7 @@
 #define FREQUENCY_COUNT 7
 #define DURATION 4
 
-class chime
-{
+class chime {
 private:
   std::vector<float> wave_;
   static const float cent_[FREQUENCY_COUNT];
@@ -18,7 +17,7 @@ private:
 public:
   chime(int pitch);
   ~chime();
-  bool play(float volume, int &pos, float *buffer, int count);
+  bool play(float volume, int &pos, float *buffer, std::size_t count);
 };
 
 #endif // SRC_CHIME_H
