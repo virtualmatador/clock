@@ -1,8 +1,8 @@
 #ifndef SRC_WALL_CLOCK_H
 #define SRC_WALL_CLOCK_H
 
-#include <SDL.h>
-#include <SDL_ttf.h>
+#include <SDL3/SDL.h>
+#include <SDL3_ttf/SDL_ttf.h>
 
 #include <array>
 #include <chrono>
@@ -16,10 +16,8 @@
 
 #include "chime.h"
 
-class wall_clock
-{
-  struct STRIKE
-  {
+class wall_clock {
+  struct STRIKE {
     int pos;
     float volume;
     int pitch;
@@ -33,22 +31,22 @@ private:
 
   SDL_Window *wnd_;
   SDL_Renderer *renderer_;
-  SDL_RWops *font_source_;
+  SDL_IOStream *font_source_;
   TTF_Font *font_big_;
   TTF_Font *font_medium_;
   TTF_Font *font_small_;
   SDL_Texture *texture_second_;
-  SDL_Point size_second_;
+  SDL_FPoint size_second_;
   SDL_Texture *texture_time_;
-  SDL_Point size_time_;
+  SDL_FPoint size_time_;
   SDL_Texture *texture_ampm_;
-  SDL_Point size_ampm_;
+  SDL_FPoint size_ampm_;
   SDL_Texture *texture_weekday_;
-  SDL_Point size_weekday_;
+  SDL_FPoint size_weekday_;
   SDL_Texture *texture_date_;
-  SDL_Point size_date_;
+  SDL_FPoint size_date_;
   SDL_Texture *texture_options_;
-  SDL_Point size_options_;
+  SDL_FPoint size_options_;
   int total_height_;
   int width_;
   int height_;
@@ -58,7 +56,7 @@ private:
   int time_width_;
   int lines_height_;
 
-  SDL_AudioDeviceID audio_device_;
+  SDL_AudioStream *audio_stream_;
   std::vector<chime> chimes_;
   float tense_;
   int pitch_;
@@ -87,47 +85,27 @@ private:
   std::set<std::size_t> alarms_;
   std::size_t next_alarm_;
   std::list<STRIKE> strikes_;
+  std::vector<float> audio_buffer_;
   std::map<std::string, std::function<void(std::istream &)>> config_handlers_;
 
 private:
   inline static std::array weekdays_full_ = {
-      "SUNDAY",
-      "MONDAY",
-      "TUESDAY",
-      "WEDNESDAY",
-      "THURSDAY",
-      "FRIDAY",
-      "SATURDAY",
+      "SUNDAY",   "MONDAY", "TUESDAY",  "WEDNESDAY",
+      "THURSDAY", "FRIDAY", "SATURDAY",
   };
   inline static std::array weekdays_abbreviated_ = {
-      "SUN",
-      "MON",
-      "TUES",
-      "WED",
-      "THURS",
-      "FRI",
-      "SAT",
+      "SUN", "MON", "TUES", "WED", "THURS", "FRI", "SAT",
   };
   inline static std::array months_ = {
-      "JAN",
-      "FEB",
-      "MAR",
-      "APR",
-      "MAY",
-      "JUN",
-      "JUL",
-      "AUG",
-      "SEP",
-      "OCT",
-      "NOV",
-      "DEC",
+      "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+      "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
   };
 
 public:
   wall_clock(const std::string &help_path);
   ~wall_clock();
   void run();
-  void play_chimes(unsigned char *buffer, int length);
+  void play_chimes(int length);
 
 private:
   void set_display();
@@ -146,11 +124,11 @@ private:
   void tick();
   void read_config();
   void redraw(const bool second_only);
-  void draw_text(SDL_Texture *&texture, SDL_Point &size,
+  void draw_text(SDL_Texture *&texture, SDL_FPoint &size,
                  const std::string &text, TTF_Font *font,
                  const SDL_Color &color);
-  void render_texture(SDL_Texture *texture, const SDL_Point &size, const int x,
-                      const int y);
+  void render_texture(SDL_Texture *texture, float x, float y,
+                      const SDL_FPoint &size);
   void start_timer(int delay);
   void stop_timer();
   void bell_alarm();
